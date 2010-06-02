@@ -1,0 +1,13 @@
+html
+pkg
+doc
+*.gem
+*.rbc
+*.tmproj
+nbproject
+*.bundle
+*.o
+*.DS_Store
+benchmark
+*~
+*#*

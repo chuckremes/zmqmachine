@@ -1,0 +1,81 @@
+zmqmachine
+    by Chuck Remes
+    http://github.com/chuckremes/zmqmachine
+
+== DESCRIPTION:
+
+ZMQMachine is another Ruby implementation of the reactor pattern but this
+time using 0mq sockets rather than POSIX sockets.
+
+Unlike the great Eventmachine ruby project and the Python Twisted
+project which work with POSIX sockets, ZMQMachine is inherently threaded. The
+0mq sockets backing the reactor use a thread pool for performing
+their work so already it is different from most other reactors. Also, a
+single program may create multiple reactor instances which runs in
+its own thread. All activity within the reactor is single-threaded
+and asynchronous.
+
+It is possible to extend the 0mq library to "poll" normal file
+descriptors. This isn't on my roadmap but patches are accepted.
+
+== FEATURES/PROBLEMS:
+
+* No specs yet.
+
+* Documentation is limited. I need to write up a lot more detail on the Handler classes passed
+  to socket instances and how this differs from the Eventmachine way.
+
+* Exceptions and error codes haven't really been implemented yet.
+
+* Some classes are just skeletons.
+
+* Recommended for JRuby since it is the only existing runtime that uses
+  native threads without a GIL. MRI 1.9.x is okay but may have
+  threading problems.
+
+== SYNOPSIS:
+
+Read and execute the examples in the examples directory.
+
+== REQUIREMENTS:
+
+Depends on 2 external gems.
+
+* ffi-rzmq (built from project master or at least 0.4.2)
+* ffi (built from master for threading fixes)
+
+== INSTALL:
+
+Make sure the 0MQ library is already installed on your system. Secondly,
+make sure the FFI gem is built from its project master (see Requirements).
+Lastly, verify the ffi-rzmq gem is built from its project master.
+
+  % git clone github.com/chuckremes/zmqmachine.git
+  % cd zmqmachine
+  % gem build zmqmachine.gemspec
+  % gem install zmqmachine-*.gem
+
+== LICENSE:
+
+(The MIT License)
+
+Copyright (c) 2010 Chuck Remes
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
