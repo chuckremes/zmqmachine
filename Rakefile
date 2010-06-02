@@ -13,5 +13,6 @@ Bones {
   authors  'Chuck Remes'
   email    'cremes@mac.com'
   url      'http://github.com/chuckremes/zmqmachine'
+  ignore_file '.gitignore'
 }
 
