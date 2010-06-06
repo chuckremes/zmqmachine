@@ -1,3 +1,9 @@
+== 0.2.0 / 2010-06-06
+  * Updated internals to conform to the 0mq api as of
+  release 2.0.7.
+  
+  * Minor api enhancements.
+
 == 0.1.0 / 2010-06-02
 
 * 1 major enhancement

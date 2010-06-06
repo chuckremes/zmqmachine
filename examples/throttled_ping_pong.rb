@@ -3,7 +3,7 @@ require 'rubygems'
 require 'ffi-rzmq'
 require '../lib/zmqmachine'
 
-# This example illustrates how to write a simple set of 
+# This example illustrates how to write a simple set of
 # handlers for providing message ping-pong using
 # a PAIR socket pair. All activity is asynchronous and
 # relies on non-blocking I/O.
@@ -72,13 +72,17 @@ class PingHandler
   end
 end
 
-#@ping_handler = nil
-#@pong_handler = nil
+
 
 # Run both handlers within the same reactor context
 ctx1 = ZM::Reactor.new(:pong).run do |context|
   @pong_handler = PongHandler.new context
   context.pair_socket @pong_handler
+
+  # If you uncomment these 2 lines, comment out the
+  # +ctx2+ block below.
+  #  @ping_handler = PingHandler.new context
+  #  context.pair_socket @ping_handler
 end
 
 # Or, run each handler in separate contexts each with its
@@ -89,7 +93,7 @@ ctx2 = ZM::Reactor.new(:ping).run do |context|
 end
 
 # let's see how many messages we can transfer in this many seconds
-sleep_time = 20
+sleep_time = 5
 puts "Started at [#{Time.now}]"
 puts "main thread will sleep [#{sleep_time}] seconds before aborting the context threads"
 sleep sleep_time

@@ -74,6 +74,11 @@ class SubscriberHandler
   end
 end
 
+
+# Mix and match the handlers amongst the 5 reactors below. Make sure that a publisher
+# handler is only getting instantiated and run in one reactor at a time. The subscriber
+# handlers can be instantiated multiple times in each reactor if you so choose.
+
 # Run all handlers within the same reactor context
 ctx1 = ZM::Reactor.new(:A).run do |context|
   @pub1_handler = PublisherHandler.new context, 5555, ['futures.us.es.m.10', 'futures.us.es.u.10']
@@ -170,7 +175,7 @@ ctx4 = ZM::Reactor.new(:D).run do |context|
 end
 
 # let's see how many messages we can publish in this many seconds
-sleep_time = 20
+sleep_time = 5
 puts "Started at [#{Time.now}]"
 puts "main thread will sleep [#{sleep_time}] seconds before aborting the reactor context threads"
 sleep sleep_time

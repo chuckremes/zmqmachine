@@ -53,12 +53,19 @@ module ZMQMachine
       @proc_queue_mutex = Mutex.new
 
       # could raise if it fails
-      @context = ZMQ::Context.new 1, 1, ZMQ::POLL
+      @context = ZMQ::Context.new 1
       @poller = ZMQ::Poller.new
       @sockets = []
       @raw_to_socket = {}
       Thread.abort_on_exception = true
     end
+
+    # Returns true when the reactor is running OR while it is in the
+    # midst of a shutdown request. 
+    #
+    # Returns false when the reactor thread does not exist.
+    #
+    def running?() @running; end
 
     # The main entry point for all new reactor contexts. This proc
     # or block given to this method is evaluated *once* before
@@ -68,12 +75,12 @@ module ZMQMachine
     #
     def run blk = nil, &block
       blk ||= block
-      @running = true
+      @running, @stopping = true, false
 
       @thread = Thread.new do
         blk.call self
 
-        while @running do
+        while !@stopping && @running do
           run_once
         end
 
@@ -82,7 +89,8 @@ module ZMQMachine
       self
     end
 
-    # Marks the reactor as eligible for termination.
+    # Marks the reactor as eligible for termination. Then waits for the
+    # reactor thread to exit via #join (no timeout).
     #
     # The reactor is not forcibly terminated if it is currently blocked
     # by some long-running operation. Use #kill to forcibly terminate
@@ -90,7 +98,8 @@ module ZMQMachine
     #
     def stop
       # wait until the thread loops around again and exits on its own
-      @running = false
+      @stopping = true
+      join
     end
 
     # Join on the thread running this reactor instance. Default behavior
@@ -103,7 +112,9 @@ module ZMQMachine
     # Returns immediately when the thread has already exited.
     #
     def join delay = nil
-      if @thread.alive?
+      # don't allow the thread to try and join itself and only worry about
+      # joining for live threads
+      if @thread.alive? && @thread != Thread.current
         if delay
           # convert to seconds to meet the argument expectations of Thread#join
           seconds = delay / 1000.0
@@ -275,6 +286,7 @@ module ZMQMachine
       # work on a dup since #close_socket deletes from @sockets
       @sockets.dup.each { |sock| close_socket sock }
       @context.terminate
+      @running = false
     end
 
     def run_timers

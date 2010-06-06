@@ -9,6 +9,9 @@ require '../lib/zmqmachine'
 # response. The RPC reply contains information about the out-of-
 # band data so the servers know that the transfer was complete.
 #
+# This is NOT an implementation of a real FTP server; I used
+# the acronym to highlight the role of each component.
+#
 
 
 server_address = ZM::Address.new '127.0.0.1', 6555, :tcp
