@@ -14,5 +14,6 @@ Bones {
   email    'cremes@mac.com'
   url      'http://github.com/chuckremes/zmqmachine'
   ignore_file '.gitignore'
+  readme_file 'README.rdoc'
 }
 

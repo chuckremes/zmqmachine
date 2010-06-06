@@ -16,7 +16,7 @@ server_address = ZM::Address.new '127.0.0.1', 6555, :tcp
 
 class FTPDataClient
   include ZM::Deferrable
-  
+
   def initialize context, address, topic, process
     @context = context
     @address = address
@@ -24,7 +24,7 @@ class FTPDataClient
     @process = process
     @received_count = 0
     @expected_count = -1
-    
+
     callback do
       puts "FTPDataClient#callback fired, received all file chunks"
       @context.next_tick { @context.stop }
@@ -38,14 +38,14 @@ class FTPDataClient
   end
 
   def on_readable socket, message
-      obj = decode strip_topic(message.copy_out_string)
-      puts "#{self.class.name}#on_readable: process obj #{obj.inspect}"
-      @received_count += @process.call(obj)
-      succeed if complete?
+    obj = decode strip_topic(message.copy_out_string)
+    puts "#{self.class.name}#on_readable: process obj #{obj.inspect}"
+    @received_count += @process.call(obj)
+    succeed if complete?
   end
 
   def on_writable(socket); puts "#{self.class.name}#on_writable, should never be called"; end
-  
+
   def should_expect count
     puts "#{self.class.name}#should_expect, set to expect [#{count}], already received [#{@received_count}]"
     @expected_count = count
@@ -54,7 +54,7 @@ class FTPDataClient
 
 
   private
-  
+
   def strip_topic payload
     payload.split('|').last
   end
@@ -93,16 +93,13 @@ class FTPControlClient
 
     @data_client = FTPDataClient.new @context, sub_address, topic, blk
     @sub_socket = @context.sub_socket @data_client
-    
+
     req = {'filename' => filename, 'reply_to' => sub_address.to_s}
 
     puts "#{self.class.name}#get: send request for the file chunks to be published"
     @socket.send_message_string encode(req)
   end
 
-  def on_writable socket
-    puts "#{self.class.name} on_writable, should never be called"
-  end
 
   private
 
@@ -220,7 +217,7 @@ end
 
 # Run both handlers within the same reactor context
 ctx1 = ZM::Reactor.new(:test).run do |context|
-  
+
   @request_server = FTPControlServer.new context, server_address
   context.rep_socket @request_server
 
@@ -229,11 +226,11 @@ ctx1 = ZM::Reactor.new(:test).run do |context|
 
   @request_client.get('fakeo') do |file_chunk|
     puts "block: file chunk #{file_chunk.inspect}"
-    
+
     # the number of chunks processed in this block; this return
     # value is used by FTPDataClient#on_readable for tallying
     # the total number of processed chunks.
-    1 
+    1
   end
 
 end
