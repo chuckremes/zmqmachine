@@ -33,14 +33,14 @@ class PingPongHandler
     end
   end
 
-  def on_readable socket, message
+  def on_readable socket, messages
     @received_count += 1
 
     case socket.kind
     when :reply
-      socket.send_message message
+      socket.send_message messages.first
     when :request
-      socket.send_message message
+      socket.send_message messages.first
     end
 
     @sent_count += 1

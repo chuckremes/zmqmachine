@@ -25,9 +25,9 @@ class PongHandler
     rc = socket.bind address
   end
 
-  def on_readable socket, message
+  def on_readable socket, messages
     @received_count += 1
-    pong socket, message
+    pong socket, messages.first
   end
 
   def on_writable socket
@@ -54,7 +54,7 @@ class PingHandler
     rc = socket.connect address
   end
 
-  def on_readable socket, message
+  def on_readable socket, messages
     @received_count += 1
   end
 

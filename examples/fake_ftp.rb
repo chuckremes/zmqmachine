@@ -40,8 +40,8 @@ class FTPDataClient
     @socket.subscribe @topic
   end
 
-  def on_readable socket, message
-    obj = decode strip_topic(message.copy_out_string)
+  def on_readable socket, messages
+    obj = decode strip_topic(messages.first.copy_out_string)
     puts "#{self.class.name}#on_readable: process obj #{obj.inspect}"
     @received_count += @process.call(obj)
     succeed if complete?
@@ -83,8 +83,8 @@ class FTPControlClient
     rc = socket.connect @address
   end
 
-  def on_readable socket, message
-    reply = decode message.copy_out_string
+  def on_readable socket, messages
+    reply = decode messages.first.copy_out_string
     puts "#{self.class.name}#on_readable: reply from FTPDataServer #{reply.inspect}"
 
     @data_client.should_expect reply['total_chunks']
@@ -183,8 +183,8 @@ class FTPControlServer
     rc = socket.bind @address
   end
 
-  def on_readable socket, message
-    request = decode message.copy_out_string
+  def on_readable socket, messages
+    request = decode messages.first.copy_out_string
     puts "#{self.class.name}: query #{request.inspect}"
     @pub_handler = FTPDataServer.new request
     @pub_socket = @context.pub_socket @pub_handler

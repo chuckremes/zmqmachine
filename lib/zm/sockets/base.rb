@@ -99,9 +99,11 @@ module ZMQMachine
       #
       # Returns true on success, false otherwise.
       #
-      def send_message message
-        rc = @raw_socket.send message, ZMQ::NOBLOCK
-        rc
+      # May raise a ZMQ::SocketError.
+      #
+      def send_message message, multipart = false
+        queued = @raw_socket.send message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
+        queued
       end
 
       # Convenience method to send a string on the socket. It handles
@@ -109,23 +111,56 @@ module ZMQMachine
       #
       # Returns true on success, false otherwise.
       #
+      # May raise a ZMQ::SocketError.
+      #
       def send_message_string message
-        rc = @raw_socket.send_string message, ZMQ::NOBLOCK
+        queued = @raw_socket.send_string message, ZMQ::NOBLOCK
+        queued
+      end
+      
+      # Convenience method for sending a multi-part message. The
+      # +messages+ argument must respond to :size and :at (like
+      # an Array).
+      #
+      # May raise a ZMQ::SocketError.
+      #
+      def send_messages messages
+        rc = false
+        i = 0
+        size = messages.size
+       
+        # loop through all messages but the last
+        while size > 1 && i < size - 1 do
+          rc = send_message messages.at(i), true
+          i += 1
+        end
+        
+        # send the last message without the multipart arg to flush
+        # the message to the 0mq queue
+        rc = send_messages.last if size > 0
         rc
       end
+
+      # Retrieve the IDENTITY value assigned to this socket.
+      #
+      def identity() @raw_socket.identity; end
+
+      # Assign a custom IDENTITY value to this socket. Limit is
+      # 255 bytes and must be greater than 0 bytes.
+      #
+      def identity=(value) @raw_socket.identity = value; end
 
       # Used by the reactor. Never called by user code.
       #
       def resume_read
-        message = ZMQ::Message.new
-        rc = @raw_socket.recv message, ZMQ::NOBLOCK
+        messages = []
+        rc = read_message_part messages
 
-        if rc
-          @state = :ready
-          @handler.on_readable self, message
-        else
-          @handler.on_readable_error self, rc
+        while 0 == rc && @raw_socket.more_parts?
+          messages = read_message_part messages
         end
+
+        deliver messages, rc
       end
 
       # Used by the reactor. Never called by user code.
@@ -144,6 +179,27 @@ module ZMQMachine
 
       def ready_state?
         :ready == @state
+      end
+
+      def read_message_part messages
+        message = ZMQ::Message.new
+        begin
+          rc = @raw_socket.recv message, ZMQ::NOBLOCK
+          rc = 0
+        rescue ZMQ::ZeroMQError => e
+          rc = e
+        end
+        messages << message
+        rc
+      end
+
+      def deliver messages, rc
+        if 0 == rc
+          @state = :ready
+          @handler.on_readable self, messages
+        else
+          @handler.on_readable_error self, rc
+        end
       end
 
     end # module Base

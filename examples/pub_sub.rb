@@ -68,7 +68,7 @@ class SubscriberHandler
     end
   end
 
-  def on_readable socket, message
+  def on_readable socket, messages
     @received_count += 1
     sleep 0.01 if @sleep
   end

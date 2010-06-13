@@ -26,9 +26,9 @@ class PongHandler
     rc = socket.bind address
   end
 
-  def on_readable socket, message
+  def on_readable socket, messages
     @received_count += 1
-    socket.send_message message
+    socket.send_message messages.first
     @sent_count += 1
     
     @context.next_tick { @context.stop } if @sent_count == Allowed_pongs
@@ -51,9 +51,9 @@ class PingHandler
     @sent_count += 1
   end
 
-  def on_readable socket, message
+  def on_readable socket, messages
     @received_count += 1
-    rc = socket.send_message message
+    rc = socket.send_message messages.first
     @sent_count += 1
   end
 end
