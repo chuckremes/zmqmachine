@@ -15,5 +15,7 @@ Bones {
   url      'http://github.com/chuckremes/zmqmachine'
   ignore_file '.gitignore'
   readme_file 'README.rdoc'
+  
+  depend_on 'ffi-rzmq', '>= 0.5.0'
 }
 
