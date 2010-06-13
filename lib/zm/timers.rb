@@ -104,7 +104,7 @@ module ZMQMachine
     #
     def fire_expired
       # all time is expected as milliseconds
-      now = (Time.now.to_f * 1000).to_i
+      now = Timers.current_time
       save = []
 
       # timers should be sorted by expiration time
@@ -121,25 +121,20 @@ module ZMQMachine
       # ensures the timer is in sorted order
       save.each { |timer| @timers.add timer }
     end
+    
+    # Returns the current time using the following algo:
+    #
+    #  (Time.now.to_f * 1000).to_i
+    #
+    # Added as a class method so that it can be overridden by a user
+    # who wants to provide their own time source. For example, a user
+    # could use a third-party gem that provides a better performing
+    # time source.
+    #
+    def self.current_time
+      (Time.now.to_f * 1000).to_i
+    end
   end # class Timers
-
-
-  class NullProc
-    include Singleton
-
-    def call(*args); end
-  end
-
-
-  class NullTimer
-    include Singleton
-
-    def fire(); end
-    def cancel(); end
-    def expired?() false; end
-    def periodical?() false; end
-    def <=>(other) -1; end
-  end
 
 
   # Used to track the specific expiration time and execution
@@ -212,7 +207,7 @@ module ZMQMachine
     end
 
     def now
-      (Time.now.to_f * 1000).to_i
+      Timers.current_time
     end
   end # class Timer
 
