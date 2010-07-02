@@ -78,7 +78,7 @@ module ZMQMachine
       @running, @stopping = true, false
 
       @thread = Thread.new do
-        blk.call self
+        blk.call self if blk
 
         while !@stopping && @running do
           run_once
@@ -131,7 +131,7 @@ module ZMQMachine
     # and kill any pending I/O.
     # 
     def kill
-      stop
+      @stopping = true
       @thread.kill
       cleanup
     end
@@ -160,8 +160,8 @@ module ZMQMachine
     # resulting socket. Should only be paired with one other
     # #rep_socket instance.
     #
-    # +handler_instance+ must implement the #on_readable and
-    # #on_readable_error methods. The reactor will call those methods
+    # +handler_instance+ must implement the #on_writable and
+    # #on_writable_error methods. The reactor will call those methods
     # based upon new events.
     #
     # All handlers must implement the #on_attach method.
@@ -238,6 +238,34 @@ module ZMQMachine
       sock = ZMQMachine::Socket::Sub.new @context, handler_instance
       save_socket sock
       sock
+    end
+    
+    # Registers the +sock+ for POLLOUT events that will cause the
+    # reactor to call the handler's on_writable method.
+    #
+    def register_writable sock
+      @poller.register_writable sock.raw_socket
+    end
+
+    # Deregisters the +sock+ for POLLOUT. The handler will no longer
+    # receive calls to on_writable.
+    #
+    def deregister_writable sock
+      @poller.deregister_writable sock.raw_socket
+    end
+
+    # Registers the +sock+ for POLLIN events that will cause the
+    # reactor to call the handler's on_readable method.
+    #
+    def register_readable sock
+      @poller.register_readable sock.raw_socket
+    end
+
+    # Deregisters the +sock+ for POLLIN events. The handler will no longer
+    # receive calls to on_readable.
+    #
+    def deregister_readable sock
+      @poller.deregister_readable sock.raw_socket
     end
 
     # Creates a timer that will fire a single time. Expects either a
@@ -321,7 +349,7 @@ module ZMQMachine
     end
 
     def delete_socket sock
-      @poller.deregister sock.raw_socket
+      @poller.delete sock.raw_socket
       @sockets.delete sock
       @raw_to_socket.delete sock.raw_socket
     end
