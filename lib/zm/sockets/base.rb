@@ -157,7 +157,7 @@ module ZMQMachine
         rc = read_message_part messages
 
         while 0 == rc && @raw_socket.more_parts?
-          messages = read_message_part messages
+          rc = read_message_part messages
         end
 
         deliver messages, rc
