@@ -104,7 +104,7 @@ module ZMQMachine
     #
     def fire_expired
       # all time is expected as milliseconds
-      now = Timers.current_time
+      now = Timers.now
       save = []
 
       # timers should be sorted by expiration time
@@ -131,8 +131,14 @@ module ZMQMachine
     # could use a third-party gem that provides a better performing
     # time source.
     #
-    def self.current_time
+    def self.now
       (Time.now.to_f * 1000).to_i
+    end
+    
+    # Convert Timers.now to a number usable by the Time class.
+    #
+    def self.now_converted
+      now / 1000.0
     end
   end # class Timers
 
@@ -207,7 +213,7 @@ module ZMQMachine
     end
 
     def now
-      Timers.current_time
+      Timers.now
     end
   end # class Timer
 
