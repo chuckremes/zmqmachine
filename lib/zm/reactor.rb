@@ -188,6 +188,40 @@ module ZMQMachine
       sock
     end
 
+    # Creates a XREQ socket and attaches +handler_instance+ to the
+    # resulting socket. Should only be paired with one other
+    # #rep_socket instance.
+    #
+    # +handler_instance+ must implement the #on_readable,
+    # #on_readable_error, #on_writable and #on_writable_error
+    # methods. The reactor will call those methods
+    # based upon new events.
+    #
+    # All handlers must implement the #on_attach method.
+    #
+    def xreq_socket handler_instance
+      sock = ZMQMachine::Socket::XReq.new @context, handler_instance
+      save_socket sock
+      sock
+    end
+
+    # Creates a XREP socket and attaches +handler_instance+ to the
+    # resulting socket. Should only be paired with one other
+    # #req_socket instance.
+    #
+    # +handler_instance+ must implement the #on_readable,
+    # #on_readable_error, #on_writable and #on_writable_error
+    # methods. The reactor will call those methods
+    # based upon new events.
+    #
+    # All handlers must implement the #on_attach method.
+    #
+    def xrep_socket handler_instance
+      sock = ZMQMachine::Socket::XRep.new @context, handler_instance
+      save_socket sock
+      sock
+    end
+
     # Creates a PAIR socket and attaches +handler_instance+ to the
     # resulting socket. Works only with other #pair_socket instances
     # in the same or other reactor instance.

@@ -38,12 +38,12 @@ module ZMQMachine
 
   module Socket
 
-    class Req
+    class XReq
       include ZMQMachine::Socket::Base
 
       def initialize context, handler
-        @poll_options = ZMQ::POLLIN
-        @kind = :request
+        @poll_options = ZMQ::POLLIN | ZMQ::POLLOUT
+        @kind = :xrequest
 
         super
         @state = :ready
@@ -72,24 +72,8 @@ module ZMQMachine
         super
       end
 
-      # +timeout+ is measured in milliseconds; default is 0 (never timeout)
-      def send_message message
-        unless waiting_for_reply?
-          rc = super
-          @state = :waiting_for_reply
-        else
-          rc = -1
-        end
-
-        rc
-      end
-
 
       private
-
-      def waiting_for_reply?
-        :waiting_for_reply == @state
-      end
 
       def allocate_socket context
         sock = ZMQ::Socket.new context.pointer, ZMQ::XREQ
