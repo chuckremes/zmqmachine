@@ -152,6 +152,10 @@ module ZMQMachine
 
       # Used by the reactor. Never called by user code.
       #
+      # FIXME: need to rework all of this +rc+ stuff. The underlying lib returns
+      # nil when a NOBLOCK socket gets EAGAIN. It returns true when a message
+      # was successfully dequeued. The use of rc here is really ugly and wrong.
+      #
       def resume_read
         messages = []
         rc = read_message_part messages
@@ -160,7 +164,10 @@ module ZMQMachine
           rc = read_message_part messages
         end
 
-        deliver messages, rc
+        # only deliver the messages when rc is 0; otherwise, we
+        # may have gotten EAGAIN and no message was read;
+        # don't deliver empty messages
+        deliver messages, rc unless 0 == rc
       end
 
       # Used by the reactor. Never called by user code.
@@ -185,7 +192,7 @@ module ZMQMachine
         message = ZMQ::Message.new
         begin
           rc = @raw_socket.recv message, ZMQ::NOBLOCK
-          rc = 0
+          rc = 0 if rc
         rescue ZMQ::ZeroMQError => e
           rc = e
         end
