@@ -46,7 +46,7 @@ Requires the 0mq library
 Depends on 2 external gems.
 
 * ffi-rzmq (>= 0.5.0)
-* ffi (built from master for threading fixes)
+* ffi (> 0.6.3) (built from master for threading fixes)
 
 == INSTALL:
 

@@ -1,3 +1,14 @@
+== 0.3.0 / 2010-08-15
+  * Added XREQ/XREP socket types
+  * Moved the time functions for ZM::Timers into a pair of
+    class methods. Instead of accessing Time directly, it should
+    be accessed via ZM::Timers.now and ZM::Timers.now_converted.
+    Doing so allows the programmer to reopen the ZM::Timers class and
+    redefine how time is procured if necessary (e.g. every second of
+    wall clock time should translate to 1 minute of time inside the
+    reactor).
+  * Still needs specs!
+
 == 0.2.0 / 2010-06-06
   * Updated internals to conform to the 0mq api as of
   release 2.0.7.
