@@ -81,6 +81,10 @@ class FTPControlClient
   def on_attach socket
     @socket = socket
     rc = socket.connect @address
+    
+    # REQ sockets do not register for read events by default, so we need
+    # to turn that on here
+    @context.register_readable socket
   end
 
   def on_readable socket, messages

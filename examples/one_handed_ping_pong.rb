@@ -28,18 +28,25 @@ class PingPongHandler
       rc = socket.bind address
     when :request
       rc = socket.connect address
-      rc = socket.send_message_string "#{'a' * 2048}"
-      @sent_count += 1
+      @context.register_readable socket
     end
+  end
+
+  def on_writable socket
+    rc = socket.send_message_string "#{'a' * 2048}"
+    @sent_count += 1
+    
+    # after sending the first message, deregister for future write events
+    @context.deregister_writable socket
   end
 
   def on_readable socket, messages
     @received_count += 1
 
-    case socket.kind
-    when :reply
-      socket.send_message messages.first
-    when :request
+    if :reply == socket.kind
+      #socket.send_message messages.first
+      rc = socket.send_message_string messages.first.copy_out_string
+    else
       socket.send_message messages.first
     end
 
