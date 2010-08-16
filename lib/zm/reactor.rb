@@ -3,14 +3,14 @@
 # Author:: Chuck Remes
 # Homepage::  http://github.com/chuckremes/zmqmachine
 # Date:: 20100602
-# 
+#
 #----------------------------------------------------------------------------
 #
 # Copyright (C) 2010 by Chuck Remes. All Rights Reserved.
 # Email: cremes at mac dot com
-# 
+#
 # (The MIT License)
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
 # 'Software'), to deal in the Software without restriction, including
@@ -18,10 +18,10 @@
 # distribute, sublicense, and/or sell copies of the Software, and to
 # permit persons to whom the Software is furnished to do so, subject to
 # the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -32,13 +32,13 @@
 #
 #---------------------------------------------------------------------------
 #
-# 
+#
 
 module ZMQMachine
 
   class Reactor
     attr_reader :name
-    
+
     # +poll_interval+ is the number of milliseconds to block while
     # waiting for new 0mq socket events; default is 0
     #
@@ -61,7 +61,7 @@ module ZMQMachine
     end
 
     # Returns true when the reactor is running OR while it is in the
-    # midst of a shutdown request. 
+    # midst of a shutdown request.
     #
     # Returns false when the reactor thread does not exist.
     #
@@ -124,12 +124,12 @@ module ZMQMachine
         end
       end
     end
-    
+
     # Kills the running reactor instance by terminating its thread.
     #
     # After the thread exits, the reactor attempts to clean up after itself
     # and kill any pending I/O.
-    # 
+    #
     def kill
       @stopping = true
       @thread.kill
@@ -273,7 +273,7 @@ module ZMQMachine
       save_socket sock
       sock
     end
-    
+
     # Registers the +sock+ for POLLOUT events that will cause the
     # reactor to call the handler's on_writable method.
     #
@@ -331,6 +331,15 @@ module ZMQMachine
     #
     def cancel_timer timer
       @timers.cancel timer
+    end
+    
+    # Asks all timers to reschedule themselves starting from Timers.now.
+    # Typically called when the underlying time source for the ZM::Timers
+    # class has been replaced; existing timers may not fire as expected, so
+    # we ask them to reset themselves.
+    #
+    def reschedule_timers
+      @timers.reschedule
     end
 
 

@@ -122,6 +122,19 @@ module ZMQMachine
       save.each { |timer| @timers.add timer }
     end
     
+    # Runs through all timers and asks each one to reschedule itself
+    # from Timers.now + whatever delay was originally recorded.
+    #
+    def reschedule
+      timers = @timers.dup
+      @timers.clear
+      
+      timers.each do |timer|
+        timer.reschedule
+        @timers.add timer
+      end
+    end
+    
     # Returns the current time using the following algo:
     #
     #  (Time.now.to_f * 1000).to_i
@@ -158,6 +171,7 @@ module ZMQMachine
     attr_reader :fire_time
 
     # +time+ is in milliseconds
+    #
     def initialize timers, delay, periodical, timer_proc = nil, &blk
       @timers = timers
       @delay = delay.to_i
@@ -178,6 +192,8 @@ module ZMQMachine
       schedule_firing_time if @periodical
     end
 
+    # Cancels this timer from firing.
+    #
     def cancel
       @timers.cancel self
     end
@@ -186,13 +202,21 @@ module ZMQMachine
       self.fire_time <=> other.fire_time
     end
 
+    # True when the timer should be fired; false otherwise.
+    #
     def expired? time
       time ||= now
       time > @fire_time
     end
 
+    # True when this is a periodical timer; false otherwise.
+    #
     def periodical?
       @periodical
+    end
+    
+    def reschedule
+      schedule_firing_time
     end
 
 
@@ -209,12 +233,11 @@ module ZMQMachine
     # next timer to fire at, 17 + delay 5 = 22
     # had it not been late, it would fire at 20
     def schedule_firing_time
-      @fire_time = now + @delay
+      @initiated = Timers.now
+      
+      @fire_time = @initiated + @delay
     end
 
-    def now
-      Timers.now
-    end
   end # class Timer
 
 end # module ZMQMachine
