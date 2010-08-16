@@ -113,8 +113,8 @@ module ZMQMachine
       #
       # May raise a ZMQ::SocketError.
       #
-      def send_message_string message
-        queued = @raw_socket.send_string message, ZMQ::NOBLOCK
+      def send_message_string message, multipart = false
+        queued = @raw_socket.send_string message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
         queued
       end
       
@@ -159,15 +159,19 @@ module ZMQMachine
       def resume_read
         messages = []
         rc = read_message_part messages
+        #puts "resume_read: rc1 [#{rc}], more_parts? [#{@raw_socket.more_parts?}]"
 
         while 0 == rc && @raw_socket.more_parts?
+          #puts "get next part"
           rc = read_message_part messages
+          #puts "resume_read: rc2 [#{rc}]"
         end
+        #puts "no more parts, ready to deliver"
 
         # only deliver the messages when rc is 0; otherwise, we
         # may have gotten EAGAIN and no message was read;
         # don't deliver empty messages
-        deliver messages, rc unless 0 == rc
+        deliver messages, rc if 0 == rc
       end
 
       # Used by the reactor. Never called by user code.
@@ -201,6 +205,7 @@ module ZMQMachine
       end
 
       def deliver messages, rc
+        #puts "deliver: rc [#{rc}], messages #{messages.inspect}"
         if 0 == rc
           @state = :ready
           @handler.on_readable self, messages
