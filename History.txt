@@ -1,3 +1,10 @@
+== 0.3.1 / 2010-08-16
+  * Forgot to load the xreq/xrep files during startup
+  * Added support for resetting a timer's firing schedule. Useful for when
+    the time source has been overridden; let's existing timers 
+    reschedule themselves using the new time source.
+  * Fixed a logic bug with delivery of multi-part messages
+
 == 0.3.0 / 2010-08-15
   * Added XREQ/XREP socket types
   * Moved the time functions for ZM::Timers into a pair of
