@@ -332,7 +332,7 @@ module ZMQMachine
     def cancel_timer timer
       @timers.cancel timer
     end
-    
+
     # Asks all timers to reschedule themselves starting from Timers.now.
     # Typically called when the underlying time source for the ZM::Timers
     # class has been replaced; existing timers may not fire as expected, so

@@ -117,9 +117,9 @@ module ZMQMachine
         queued = @raw_socket.send_string message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
         queued
       end
-      
+
       # Convenience method for sending a multi-part message. The
-      # +messages+ argument must respond to :size and :at (like
+      # +messages+ argument must respond to :size, :at and :last (like
       # an Array).
       #
       # May raise a ZMQ::SocketError.
@@ -128,16 +128,16 @@ module ZMQMachine
         rc = false
         i = 0
         size = messages.size
-       
+
         # loop through all messages but the last
         while size > 1 && i < size - 1 do
           rc = send_message messages.at(i), true
           i += 1
         end
-        
+
         # send the last message without the multipart arg to flush
         # the message to the 0mq queue
-        rc = send_messages.last if size > 0
+        rc = send_message messages.last if size > 0
         rc
       end
 
