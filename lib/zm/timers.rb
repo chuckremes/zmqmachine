@@ -3,14 +3,14 @@
 # Author:: Chuck Remes
 # Homepage::  http://github.com/chuckremes/zmqmachine
 # Date:: 20100602
-# 
+#
 #----------------------------------------------------------------------------
 #
 # Copyright (C) 2010 by Chuck Remes. All Rights Reserved.
 # Email: cremes at mac dot com
-# 
+#
 # (The MIT License)
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
 # 'Software'), to deal in the Software without restriction, including
@@ -18,10 +18,10 @@
 # distribute, sublicense, and/or sell copies of the Software, and to
 # permit persons to whom the Software is furnished to do so, subject to
 # the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -32,12 +32,12 @@
 #
 #---------------------------------------------------------------------------
 #
-# 
+#
 
 module ZMQMachine
 
   # Manages the addition and cancellation of all timers. Each #Reactor
-  # maintains its own set of timers; the timer belongs to the 
+  # maintains its own set of timers; the timer belongs to the
   # reactor context.
   #
   # This should never be instantiated directly
@@ -83,7 +83,7 @@ module ZMQMachine
       timer
     end
 
-    # Cancel the +timer+. 
+    # Cancel the +timer+.
     #
     # Returns +true+ when cancellation succeeds.
     # Returns +false+ when it fails to find the
@@ -94,7 +94,7 @@ module ZMQMachine
     end
 
     # A convenience method that loops through all known timers
-    # and fires all of the expired timers. 
+    # and fires all of the expired timers.
     #
     #--
     # Internally the list is sorted whenever a timer is added or
@@ -106,35 +106,42 @@ module ZMQMachine
       # all time is expected as milliseconds
       now = Timers.now
       save = []
+      delete = []
 
       # timers should be sorted by expiration time
-      @timers.delete_if do |timer|
+      # NOTE: was using #delete_if here, but it does *not* delete any
+      # items when the break executes before iterating through the entire
+      # set; that's unacceptable so I save each timer for deletion and
+      # do that in a separate loop
+      @timers.each do |timer|
         break unless timer.expired?(now)
         timer.fire
         save << timer if timer.periodical?
-        true
+        delete << timer
       end
+
+      delete.each { |timer| @timers.delete timer }
 
       # reinstate the periodicals; necessary to do in two steps
       # since changing the timer.fire_time inside the loop would
       # not retain proper ordering in the sorted set; re-adding it
-      # ensures the timer is in sorted order
+      # ensures the timers are in sorted order
       save.each { |timer| @timers.add timer }
     end
-    
+
     # Runs through all timers and asks each one to reschedule itself
     # from Timers.now + whatever delay was originally recorded.
     #
     def reschedule
       timers = @timers.dup
       @timers.clear
-      
+
       timers.each do |timer|
         timer.reschedule
         @timers.add timer
       end
     end
-    
+
     # Returns the current time using the following algo:
     #
     #  (Time.now.to_f * 1000).to_i
@@ -147,7 +154,7 @@ module ZMQMachine
     def self.now
       (Time.now.to_f * 1000).to_i
     end
-    
+
     # Convert Timers.now to a number usable by the Time class.
     #
     def self.now_converted
@@ -157,7 +164,7 @@ module ZMQMachine
 
 
   # Used to track the specific expiration time and execution
-  # code for each timer. 
+  # code for each timer.
   #
   # This should never be instantiated directly
   # by user code. A timer must be known to the #Reactor in which it
@@ -214,7 +221,7 @@ module ZMQMachine
     def periodical?
       @periodical
     end
-    
+
     def reschedule
       schedule_firing_time
     end
@@ -234,7 +241,7 @@ module ZMQMachine
     # had it not been late, it would fire at 20
     def schedule_firing_time
       @initiated = Timers.now
-      
+
       @fire_time = @initiated + @delay
     end
 

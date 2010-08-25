@@ -35,7 +35,7 @@ class PingPongHandler
   def on_writable socket
     rc = socket.send_message_string "#{'a' * 2048}"
     @sent_count += 1
-    
+
     # after sending the first message, deregister for future write events
     @context.deregister_writable socket
   end
@@ -71,7 +71,7 @@ ctx1 = ZM::Reactor.new(:test).run do |context|
   end
 end
 
-ctx1.join
+ctx1.join 15_000
 #puts "Started at [#{Time.now}]"
 #puts "main thread will sleep [#{sleep_time}] seconds before aborting the context threads"
 #sleep sleep_time
