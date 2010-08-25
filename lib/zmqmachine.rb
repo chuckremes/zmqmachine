@@ -66,7 +66,7 @@ require 'set'
 require 'ffi-rzmq'
 
 # the order of files is important
-%w(address exceptions timers deferrable reactor message sockets).each do |file|
+%w(address exceptions timers deferrable reactor message sockets devices).each do |file|
   require ZMQMachine.libpath(['zm', file])
 end
 

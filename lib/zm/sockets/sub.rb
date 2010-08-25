@@ -3,14 +3,14 @@
 # Author:: Chuck Remes
 # Homepage::  http://github.com/chuckremes/zmqmachine
 # Date:: 20100602
-# 
+#
 #----------------------------------------------------------------------------
 #
 # Copyright (C) 2010 by Chuck Remes. All Rights Reserved.
 # Email: cremes at mac dot com
-# 
+#
 # (The MIT License)
-# 
+#
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
 # 'Software'), to deal in the Software without restriction, including
@@ -18,10 +18,10 @@
 # distribute, sublicense, and/or sell copies of the Software, and to
 # permit persons to whom the Software is furnished to do so, subject to
 # the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -32,7 +32,7 @@
 #
 #---------------------------------------------------------------------------
 #
-# 
+#
 
 module ZMQMachine
 
@@ -69,6 +69,10 @@ module ZMQMachine
 
       def subscribe topic
         @raw_socket.setsockopt ZMQ::SUBSCRIBE, topic
+      end
+
+      def subscribe_all
+        subscribe ''
       end
 
       private

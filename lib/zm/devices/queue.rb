@@ -67,14 +67,16 @@ module ZMQMachine
       class Handler
         attr_accessor :socket_out
 
-        def initialize reactor, address
+        def initialize reactor, address, debug = false, dir = 0
           @reactor = reactor
           @address = address
+          @debug = debug
+          @dir = dir
         end
 
         def on_attach socket
+          socket.identity = "queue.#{Kernel.rand(999_999_999)}"
           rc = socket.bind @address
-          puts "Queue::Handler#on_attach: rc [#{rc}]"
           #FIXME: error handling!
         end
 
@@ -83,7 +85,11 @@ module ZMQMachine
         end
 
         def on_readable socket, messages
-          socket_out.send_messages messages if @socket_out
+          messages.each { |msg| puts "[#{@dir}] [#{msg.copy_out_string}]" } if @debug
+
+          if @socket_out
+            socket_out.send_messages messages
+          end
         end
       end # class Handler
 
@@ -93,13 +99,13 @@ module ZMQMachine
       #
       # Routes all messages received by either address to the other address.
       #
-      def initialize reactor, incoming, outgoing
+      def initialize reactor, incoming, outgoing, debug = false
         incoming = Address.from_string incoming if incoming.kind_of? String
         outgoing = Address.from_string outgoing if outgoing.kind_of? String
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new reactor, incoming
-        @handler_out = Handler.new reactor, outgoing
+        @handler_in = Handler.new reactor, incoming, debug, :in
+        @handler_out = Handler.new reactor, outgoing, debug, :out
 
         # create each socket and pass in the appropriate handler
         @incoming = reactor.xrep_socket @handler_in

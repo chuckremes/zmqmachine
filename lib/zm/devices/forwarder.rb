@@ -65,12 +65,14 @@ module ZMQMachine
       class Handler
         attr_accessor :socket_out
 
-        def initialize reactor, address
+        def initialize reactor, address, debug = false
           @reactor = reactor
           @address = address
+          @debug = debug
         end
 
         def on_attach socket
+          socket.identity = "forwarder.#{Kernel.rand(999_999_999)}"
           rc = socket.bind @address
           #FIXME: error handling!
 
@@ -82,7 +84,9 @@ module ZMQMachine
         end
 
         def on_readable socket, messages
-          socket_out.send_messages messages
+          messages.each { |msg| p msg.copy_out_string } if @debug
+
+          socket_out.send_messages messages if @socket_out
         end
       end # class Handler
 
@@ -92,13 +96,13 @@ module ZMQMachine
       #
       # Forwards all messages received by the +incoming+ address to the +outgoing+ address.
       #
-      def initialize reactor, incoming, outgoing
+      def initialize reactor, incoming, outgoing, debug = false
         incoming = Address.from_string incoming if incoming.kind_of? String
         outgoing = Address.from_string outgoing if outgoing.kind_of? String
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new reactor, incoming
-        @handler_out = Handler.new reactor, outgoing
+        @handler_in = Handler.new reactor, incoming, debug
+        @handler_out = Handler.new reactor, outgoing, debug
 
         # create each socket and pass in the appropriate handler
         @incoming = reactor.sub_socket @handler_in
