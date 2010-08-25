@@ -1,7 +1,19 @@
+== 0.3.2 / 2010-08-25
+  * Fixed a bug in Timers where the timers were never getting removed
+    after they fired. Bug was caused by a Ruby bug with #delete_if. While
+    deleting each fired timer, the delete_if loop was exited early via
+    a call to #break as an optimization. The #break caused all deletes to
+    be ignored.
+    See bug http://redmine.ruby-lang.org/issues/show/2545
+  * Minor fixes to the ping-pong examples. Was missing some calls to
+    register/deregister for read/write events. The socket semantics have
+    changed since earlier revisions; those changes didn't get caught until
+    now.
+
 == 0.3.1 / 2010-08-16
   * Forgot to load the xreq/xrep files during startup
   * Added support for resetting a timer's firing schedule. Useful for when
-    the time source has been overridden; let's existing timers 
+    the time source has been overridden; let's existing timers
     reschedule themselves using the new time source.
   * Fixed a logic bug with delivery of multi-part messages
 
@@ -19,7 +31,7 @@
 == 0.2.0 / 2010-06-06
   * Updated internals to conform to the 0mq api as of
   release 2.0.7.
-  
+
   * Minor api enhancements.
 
 == 0.1.0 / 2010-06-02
