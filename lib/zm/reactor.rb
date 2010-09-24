@@ -80,7 +80,7 @@ module ZMQMachine
       @thread = Thread.new do
         blk.call self if blk
 
-        while !@stopping && @running do
+        while !@stopping && running? do
           run_once
         end
 
@@ -114,7 +114,7 @@ module ZMQMachine
     def join delay = nil
       # don't allow the thread to try and join itself and only worry about
       # joining for live threads
-      if @thread.alive? && @thread != Thread.current
+      if running? && @thread.alive? && @thread != Thread.current
         if delay
           # convert to seconds to meet the argument expectations of Thread#join
           seconds = delay / 1000.0
@@ -131,9 +131,11 @@ module ZMQMachine
     # and kill any pending I/O.
     #
     def kill
-      @stopping = true
-      @thread.kill
-      cleanup
+      if running?
+        @stopping = true
+        @thread.kill
+        cleanup
+      end
     end
 
     # Schedules a proc or block to execute on the next trip through the
