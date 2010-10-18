@@ -50,6 +50,10 @@ module ZMQMachine
     def initialize
       @timers = SortedSet.new
     end
+    
+    def list
+      @timers.to_a
+    end
 
     # Adds a non-periodical, one-shot timer in order of
     # first-to-fire to last-to-fire.
@@ -175,7 +179,7 @@ module ZMQMachine
   class Timer
     include Comparable
 
-    attr_reader :fire_time
+    attr_reader :fire_time, :timer_proc
 
     # +time+ is in milliseconds
     #

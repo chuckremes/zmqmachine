@@ -343,6 +343,13 @@ module ZMQMachine
     def reschedule_timers
       @timers.reschedule
     end
+    
+    def list_timers
+      @timers.list.each do |timer|
+        name = timer.respond_to?(:name) ? timer.timer_proc.name : timer.timer_proc.to_s
+        puts "fire time [#{Time.at(timer.fire_time / 1000)}], method [#{name}]"
+      end
+    end
 
 
     private
@@ -400,10 +407,12 @@ module ZMQMachine
     end
 
 
-    # Internally converts the number to microseconds
+    # Unnecessary to convert the number to microseconds; the ffi-rzmq
+    # library does this for us.
+    #
     def determine_interval interval
       # set a lower bound of 100 usec so we don't burn up the CPU
-      interval <= 0 ? 100 : (interval * 1000).to_i
+      interval <= 0 ? 0.100 : interval.to_i
     end
 
   end # class Reactor
