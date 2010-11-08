@@ -134,6 +134,9 @@ module ZMQMachine
           rc = send_message messages.at(i), true
           i += 1
         end
+        
+        # FIXME: bug; if any of the message parts fail (rc != 0) we don't see that here; the
+        # #send_message function should capture exceptions and turn them into integers for bubbling
 
         # send the last message without the multipart arg to flush
         # the message to the 0mq queue
@@ -157,21 +160,26 @@ module ZMQMachine
       # was successfully dequeued. The use of rc here is really ugly and wrong.
       #
       def resume_read
-        messages = []
-        rc = read_message_part messages
-        #puts "resume_read: rc1 [#{rc}], more_parts? [#{@raw_socket.more_parts?}]"
-
-        while 0 == rc && @raw_socket.more_parts?
-          #puts "get next part"
+        rc = 0
+        
+        # loop and deliver all messages until the socket returns EAGAIN
+        while 0 == rc
+          messages = []
           rc = read_message_part messages
-          #puts "resume_read: rc2 [#{rc}]"
-        end
-        #puts "no more parts, ready to deliver"
+          #puts "resume_read: rc1 [#{rc}], more_parts? [#{@raw_socket.more_parts?}]"
 
-        # only deliver the messages when rc is 0; otherwise, we
-        # may have gotten EAGAIN and no message was read;
-        # don't deliver empty messages
-        deliver messages, rc if 0 == rc
+          while 0 == rc && @raw_socket.more_parts?
+            #puts "get next part"
+            rc = read_message_part messages
+            #puts "resume_read: rc2 [#{rc}]"
+          end
+          #puts "no more parts, ready to deliver"
+
+          # only deliver the messages when rc is 0; otherwise, we
+          # may have gotten EAGAIN and no message was read;
+          # don't deliver empty messages
+          deliver messages, rc if 0 == rc
+        end
       end
 
       # Used by the reactor. Never called by user code.
