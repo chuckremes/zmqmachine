@@ -40,9 +40,9 @@ module ZMQMachine
     attr_reader :name
 
     # +poll_interval+ is the number of milliseconds to block while
-    # waiting for new 0mq socket events; default is 0
+    # waiting for new 0mq socket events; default is 10
     #
-    def initialize name, poll_interval = 0
+    def initialize name, poll_interval = 10
       @name = name
       @running = false
       @thread = nil
@@ -343,7 +343,7 @@ module ZMQMachine
     def reschedule_timers
       @timers.reschedule
     end
-    
+
     def list_timers
       @timers.list.each do |timer|
         name = timer.respond_to?(:name) ? timer.timer_proc.name : timer.timer_proc.to_s
@@ -388,7 +388,15 @@ module ZMQMachine
     end
 
     def poll
-      @poller.poll @poll_interval
+      if @proc_queue.empty? && @sockets.empty?
+        # when there are no sockets registered, @poller.poll would return immediately;
+        # doing so spikes the CPU even though there is no work to do
+        # take a short nap here (10ms by default) unless there are procs scheduled
+        # to run (e.g. via next_tick)
+        sleep(@poll_interval / 1000)
+      else
+        @poller.poll @poll_interval
+      end
 
       @poller.readables.each { |sock| @raw_to_socket[sock].resume_read }
       @poller.writables.each { |sock| @raw_to_socket[sock].resume_write }
@@ -411,8 +419,8 @@ module ZMQMachine
     # library does this for us.
     #
     def determine_interval interval
-      # set a lower bound of 100 usec so we don't burn up the CPU
-      interval <= 0 ? 0.100 : interval.to_i
+      # set a lower bound of 1000 usec so we don't burn up the CPU
+      interval <= 0 ? 1.0 : interval.to_i
     end
 
   end # class Reactor
