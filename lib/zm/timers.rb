@@ -48,11 +48,11 @@ module ZMQMachine
   #
   class Timers
     def initialize
-      @timers = SortedSet.new
+      @timers = []
     end
-    
+
     def list
-      @timers.to_a
+      @timers
     end
 
     # Adds a non-periodical, one-shot timer in order of
@@ -67,7 +67,7 @@ module ZMQMachine
       return nil unless blk
 
       timer = Timer.new self, delay, false, blk
-      @timers.add timer
+      add timer
       timer
     end
 
@@ -83,7 +83,7 @@ module ZMQMachine
       return nil unless blk
 
       timer = Timer.new self, delay, true, blk
-      @timers.add timer
+      add timer
       timer
     end
 
@@ -94,7 +94,13 @@ module ZMQMachine
     # given +timer+.
     #
     def cancel timer
-      @timers.delete(timer) ? true : false
+      i = index timer
+
+      if timer == @timers.at(i)
+        @timers.delete_at(i) ? true : false
+      else
+        false
+      end
     end
 
     # A convenience method that loops through all known timers
@@ -106,31 +112,35 @@ module ZMQMachine
     # is not yet expired; it knows all subsequent timers are not
     # expired too.
     #
+    # timers should be sorted by expiration time
+    # NOTE: was using #delete_if here, but it does *not* delete any
+    # items when the break executes before iterating through the entire
+    # set; that's unacceptable so I save each timer for deletion and
+    # do that in a separate loop
+    #
+    # Additionally, some timers may execute code paths that cancel other
+    # timers. If those timers are deleted while we are still iterating
+    # over them, the behavior is undefined (each runtime can handle it
+    # differently). To avoid that issue, we determine if they are expired
+    # and save them off for final processing outside of the loop. Any
+    # firing timer that deletes another timer will be safe.
+    #
     def fire_expired
       # all time is expected as milliseconds
       now = Timers.now
-      save = []
-      delete = []
+      runnables, periodicals, expired = [], [], []
 
-      # timers should be sorted by expiration time
-      # NOTE: was using #delete_if here, but it does *not* delete any
-      # items when the break executes before iterating through the entire
-      # set; that's unacceptable so I save each timer for deletion and
-      # do that in a separate loop
-      @timers.each do |timer|
+      # defer firing the timer until after this loop so we can clean it up first
+      @timers.each_with_index do |timer, index|
         break unless timer.expired?(now)
-        timer.fire
-        save << timer if timer.periodical?
-        delete << timer
+        runnables << timer
+        periodicals << timer if timer.periodical?
+        expired << index
       end
 
-      delete.each { |timer| @timers.delete timer }
-
-      # reinstate the periodicals; necessary to do in two steps
-      # since changing the timer.fire_time inside the loop would
-      # not retain proper ordering in the sorted set; re-adding it
-      # ensures the timers are in sorted order
-      save.each { |timer| @timers.add timer }
+      remove expired
+      runnables.each { |timer| timer.fire }
+      renew periodicals
     end
 
     # Runs through all timers and asks each one to reschedule itself
@@ -142,7 +152,7 @@ module ZMQMachine
 
       timers.each do |timer|
         timer.reschedule
-        @timers.add timer
+        add timer
       end
     end
 
@@ -164,6 +174,49 @@ module ZMQMachine
     def self.now_converted
       now / 1000.0
     end
+
+
+    private
+
+    # inserts in order using a binary search (O(nlog n)) to find the 
+    # index to insert; this scales nicely for situations where there
+    # are many thousands thousands of timers
+    def add timer
+      i = index timer
+      @timers.insert(i, timer)
+    end
+
+    # Original Ruby source Posted by Sergey Chernov (sergeych) on 2010-05-13 20:23
+    # http://www.ruby-forum.com/topic/134477
+    #
+    # binary search; assumes underlying array is already sorted
+    def index value
+      l, r = 0, @timers.size - 1
+
+      while l <= r
+        m = (r + l) / 2
+        if value < @timers.at(m)
+          r = m - 1
+        else
+          l = m + 1
+        end
+      end
+      l
+    end
+
+    def remove expired
+      # need to reverse so we are deleting the highest indexes first,
+      # otherwise everything shifts down and we delete the wrong timers
+      expired.sort.reverse.each { |index| @timers.delete_at index }
+    end
+
+    def renew timers
+      # reinstate the periodicals; necessary to do in two steps
+      # since changing the timer.fire_time inside the loop (in parent) would
+      # not retain proper ordering in the sorted list; re-adding it
+      # ensures the timers are in sorted order
+      timers.each { |timer| add timer }
+    end
   end # class Timers
 
 
@@ -181,7 +234,7 @@ module ZMQMachine
 
     attr_reader :fire_time, :timer_proc
 
-    # +time+ is in milliseconds
+    # +delay+ is in milliseconds
     #
     def initialize timers, delay, periodical, timer_proc = nil, &blk
       @timers = timers
@@ -216,7 +269,7 @@ module ZMQMachine
     # True when the timer should be fired; false otherwise.
     #
     def expired? time
-      time ||= now
+      time ||= Timers.now
       time > @fire_time
     end
 
@@ -229,6 +282,12 @@ module ZMQMachine
     def reschedule
       schedule_firing_time
     end
+    
+    def to_s
+      "[delay [#{@delay}], periodical? [#{@periodical}], fire_time [#{Time.at(@fire_time/1000)}] fire_delay_s [#{(@fire_time - Timers.now)/1000}]]"
+    end
+    
+    def inspect; to_s; end
 
 
     private
