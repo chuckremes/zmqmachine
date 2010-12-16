@@ -388,8 +388,9 @@ module ZMQMachine
     end
 
     def poll
-      if @proc_queue.empty? && @sockets.empty?
+      if (@proc_queue.empty? && @sockets.empty?) || @poller.size.zero?
         # when there are no sockets registered, @poller.poll would return immediately;
+        # the same is true when sockets are registered but *not* for any events;
         # doing so spikes the CPU even though there is no work to do
         # take a short nap here (10ms by default) unless there are procs scheduled
         # to run (e.g. via next_tick)
