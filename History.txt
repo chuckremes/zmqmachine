@@ -1,3 +1,19 @@
+== 0.4.0 / 2010-12-16
+  * Replaced SortedSet in Timers with an Array and a custom routine
+    for finding the in-order index for an insert. The routine
+    uses a binary search algo so it can find the proper index in
+    O(nlog n) time. This resulted in a 2 order of magnitude perf
+    increase when using more than a handful of timers.
+  * Modified the default reactor poll interval to 10ms from 100usec.
+    Also, fixed the poll routine so that it sleeps for poll_interval
+    when there are no procs scheduled and there are no sockets
+    registered. With no sockets, the call to Poller#poll returns
+    immediately. This was showing as a busy loop and pushing CPU
+    to 100% for some users.
+    With this change, timers now have a minimum *default* resolution
+    of 10 milliseconds. The poll interval can be overridden and set to
+    a minimum of 1ms for better timing controls.
+
 == 0.3.2 / 2010-08-25
   * Fixed a bug in Timers where the timers were never getting removed
     after they fired. Bug was caused by a Ruby bug with #delete_if. While

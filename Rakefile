@@ -16,6 +16,6 @@ Bones {
   ignore_file '.gitignore'
   readme_file 'README.rdoc'
   
-  depend_on 'ffi-rzmq', '>= 0.6.0'
+  depend_on 'ffi-rzmq', '>= 0.7.0'
 }
 

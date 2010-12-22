@@ -2,11 +2,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{zmqmachine}
-  s.version = "0.3.2"
+  s.version = "0.4.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Chuck Remes"]
-  s.date = %q{2010-08-25}
+  s.date = %q{2010-12-22}
   s.description = %q{ZMQMachine is another Ruby implementation of the reactor pattern but this
 time using 0mq sockets rather than POSIX sockets.
 
@@ -28,21 +28,21 @@ descriptors. This isn't on my roadmap but patches are accepted.}
   s.require_paths = ["lib"]
   s.rubyforge_project = %q{zmqmachine}
   s.rubygems_version = %q{1.3.7}
-  s.summary = %q{ZMQMachine is another Ruby implementation of the reactor pattern but this time using 0mq sockets rather than POSIX sockets}
+  s.summary = %q{ZMQMachine is another Ruby implementation of the reactor pattern but this time using 0mq sockets rather than POSIX sockets.}
 
   if s.respond_to? :specification_version then
     current_version = Gem::Specification::CURRENT_SPECIFICATION_VERSION
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      s.add_runtime_dependency(%q<ffi-rzmq>, [">= 0.5.0"])
-      s.add_development_dependency(%q<bones>, [">= 3.4.7"])
+      s.add_runtime_dependency(%q<ffi-rzmq>, [">= 0.7.0"])
+      s.add_development_dependency(%q<bones>, [">= 3.5.4"])
     else
-      s.add_dependency(%q<ffi-rzmq>, [">= 0.5.0"])
-      s.add_dependency(%q<bones>, [">= 3.4.7"])
+      s.add_dependency(%q<ffi-rzmq>, [">= 0.7.0"])
+      s.add_dependency(%q<bones>, [">= 3.5.4"])
     end
   else
-    s.add_dependency(%q<ffi-rzmq>, [">= 0.5.0"])
-    s.add_dependency(%q<bones>, [">= 3.4.7"])
+    s.add_dependency(%q<ffi-rzmq>, [">= 0.7.0"])
+    s.add_dependency(%q<bones>, [">= 3.5.4"])
   end
 end
