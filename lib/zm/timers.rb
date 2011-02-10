@@ -270,7 +270,7 @@ module ZMQMachine
     #
     def expired? time
       time ||= Timers.now
-      time > @fire_time
+      time >= @fire_time
     end
 
     # True when this is a periodical timer; false otherwise.
