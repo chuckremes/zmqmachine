@@ -204,11 +204,16 @@ module ZMQMachine
         message = ZMQ::Message.new
         begin
           rc = @raw_socket.recv message, ZMQ::NOBLOCK
-          rc = 0 if rc
+          
+          if rc
+            rc = 0 # callers expect 0 for success, not true
+            messages << message
+          end
+          
         rescue ZMQ::ZeroMQError => e
           rc = e
         end
-        messages << message
+
         rc
       end
 
