@@ -50,7 +50,12 @@ module ZMQMachine
     end
 
     def to_s
-      "#{@transport}://#{@host}:#{@port}"
+      case @transport
+      when :tcp
+        "#{@transport}://#{@host}:#{@port}"
+      else
+        "#{@transport}://#{@host}"
+      end
     end
 
 
@@ -63,22 +68,22 @@ module ZMQMachine
       # should also return nil or some other error indication when parsing fails
       split = string.split(':')
       type = split[0]
-      port = split[2]
-      host = split[1].sub('//', '')
+      port = split[2] # nil for ipc/inproc and non-empty for tcp
+      host = split[1].slice(2, split[1].length) #sub('//', '')
 
-      Address.new host, port, type.to_sym
+      Address.new host, port, type.downcase.to_sym
     end
 
     private
 
     def determine_type type
-      case type
-      when :inprocess
+      case type.to_sym
+      when :inproc
         :inproc
-      when :tcp, :pgm
-        type
+      when :tcp, :pgm, :ipc
+        type.to_sym
       else
-        raise UnknownAddressError, "Unknown address transport type [#{type}]; must be :tcp, :pgm, or :inprocess"
+        raise UnknownAddressError, "Unknown address transport type [#{type}]; must be :tcp, :pgm, or :inproc"
       end
     end
 
