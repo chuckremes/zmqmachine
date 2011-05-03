@@ -96,10 +96,22 @@ module ZMQMachine
     def cancel timer
       i = index timer
 
-      if timer == @timers.at(i)
+      # when #index doesn't find a match, it returns an index 1 past
+      # the end, so check for that
+      if i < @timers.size && timer == @timers.at(i)
         @timers.delete_at(i) ? true : false
       else
-        false
+        # slow branch; necessary since the #index operation works 
+        # solely from the timer.fire_time attribute. There
+        # could be multiple timers scheduled to fire at the
+        # same time so the equivalence test above could fail
+        # on the first index returned, so fallback to this
+        # slower method
+        size = @timers.size
+        @timers.delete_if { |t| t == timer }
+        
+        # true when the array has shrunk, false otherwise
+        @timers.size != size
       end
     end
 
@@ -128,17 +140,17 @@ module ZMQMachine
     def fire_expired
       # all time is expected as milliseconds
       now = Timers.now
-      runnables, periodicals, expired = [], [], []
+      runnables, periodicals, expired_count = [], [], 0
 
       # defer firing the timer until after this loop so we can clean it up first
-      @timers.each_with_index do |timer, index|
+      @timers.each do |timer|
         break unless timer.expired?(now)
         runnables << timer
         periodicals << timer if timer.periodical?
-        expired << index
+        expired_count += 1
       end
 
-      remove expired
+      remove expired_count
       runnables.each { |timer| timer.fire }
       renew periodicals
     end
@@ -204,10 +216,11 @@ module ZMQMachine
       l
     end
 
-    def remove expired
-      # need to reverse so we are deleting the highest indexes first,
-      # otherwise everything shifts down and we delete the wrong timers
-      expired.sort.reverse.each { |index| @timers.delete_at index }
+    def remove expired_count
+      # the timers are ordered, so we can just shift them off the front
+      # of the array; this is *orders of magnitude* faster than #delete_at
+      # with a (reversed) array of indexes
+      expired_count.times { @timers.shift }
     end
 
     def renew timers
@@ -263,7 +276,15 @@ module ZMQMachine
     end
 
     def <=>(other)
-      self.fire_time <=> other.fire_time
+      @fire_time <=> other.fire_time
+    end
+    
+    def ==(other)
+      # need a more specific equivalence test since multiple timers could be
+      # scheduled to go off at exactly the same time
+      @fire_time == other.fire_time &&
+      @timer_proc == other.timer_proc &&
+      periodical? == other.periodical?
     end
 
     # True when the timer should be fired; false otherwise.
@@ -284,7 +305,11 @@ module ZMQMachine
     end
     
     def to_s
-      "[delay [#{@delay}], periodical? [#{@periodical}], fire_time [#{Time.at(@fire_time/1000)}] fire_delay_s [#{(@fire_time - Timers.now)/1000}]]"
+      ftime = Time.at(@fire_time / 1000)
+      fdelay = @fire_time - Timers.now
+      name = @timer_proc.respond_to?(:name) ? @timer_proc.name : @timer_proc.to_s
+      
+      "[delay [#{@delay}], periodical? [#{@periodical}], fire_time [#{ftime}] fire_delay_ms [#{fdelay}]] proc [#{name}]"
     end
     
     def inspect; to_s; end
