@@ -67,15 +67,17 @@ module ZMQMachine
       class Handler
         attr_accessor :socket_out
 
-        def initialize reactor, address, verbose = false, dir = 0
+        def initialize reactor, address, dir, opts = {}
           @reactor = reactor
           @address = address
-          @verbose = verbose
+          @verbose = opts[:verbose] || false
+          @opts = opts
           @dir = dir
         end
 
         def on_attach socket
           socket.identity = "queue.#{Kernel.rand(999_999_999)}"
+          set_options socket
           rc = socket.bind @address
           #FIXME: error handling!
         end
@@ -85,13 +87,20 @@ module ZMQMachine
         end
 
         def on_readable socket, messages
-          messages.each { |msg| puts "[Q#{@dir}] [#{msg.copy_out_string}]" } if @verbose
+          messages.each { |msg| @reactor.log(:device, "[Q#{@dir}] [#{msg.copy_out_string}]") } if @verbose
 
           if @socket_out
             # FIXME: need to be able to handle EAGAIN/failed send
             rc = socket_out.send_messages messages
+            messages.each { |message| message.close }
           end
         end
+        
+        def set_options socket
+          socket.raw_socket.setsockopt ZMQ::HWM, (@opts[:hwm] || 1)
+          socket.raw_socket.setsockopt ZMQ::LINGER, (@opts[:linger] || 0)
+        end
+        
       end # class Handler
 
 
@@ -100,13 +109,13 @@ module ZMQMachine
       #
       # Routes all messages received by either address to the other address.
       #
-      def initialize reactor, incoming, outgoing, verbose = false
+      def initialize reactor, incoming, outgoing, opts = {}
         incoming = Address.from_string incoming if incoming.kind_of? String
         outgoing = Address.from_string outgoing if outgoing.kind_of? String
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new reactor, incoming, verbose, :in
-        @handler_out = Handler.new reactor, outgoing, verbose, :out
+        @handler_in = Handler.new reactor, incoming, :in, opts
+        @handler_out = Handler.new reactor, outgoing, :out, opts
 
         # create each socket and pass in the appropriate handler
         @incoming = reactor.xrep_socket @handler_in

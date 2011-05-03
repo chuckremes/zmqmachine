@@ -65,17 +65,20 @@ module ZMQMachine
       class Handler
         attr_accessor :socket_out
 
-        def initialize reactor, address, verbose = false
+        def initialize reactor, address, opts = {}
           @reactor = reactor
           @address = address
-          @verbose = verbose
+          @verbose = opts[:verbose] || false
+          @opts = opts
+          
+          @messages = []
         end
 
         def on_attach socket
           socket.identity = "forwarder.#{Kernel.rand(999_999_999)}"
+          set_options socket
           rc = socket.bind @address
           #FIXME: error handling!
-
           socket.subscribe_all if :sub == socket.kind
         end
 
@@ -84,10 +87,19 @@ module ZMQMachine
         end
 
         def on_readable socket, messages
-          messages.each { |msg| puts "[fwd] [#{msg.copy_out_string}]" } if @verbose
+          messages.each { |msg| @reactor.log(:device, "[fwd] [#{msg.copy_out_string}]") } if @verbose
 
-          socket_out.send_messages messages if @socket_out
+          if @socket_out
+            rc = socket_out.send_messages messages
+            messages.each { |message| message.close }
+          end
         end
+        
+        def set_options socket
+          socket.raw_socket.setsockopt ZMQ::HWM, (@opts[:hwm] || 1)
+          socket.raw_socket.setsockopt ZMQ::LINGER, (@opts[:linger] || 0)
+        end
+        
       end # class Handler
 
 
@@ -96,13 +108,13 @@ module ZMQMachine
       #
       # Forwards all messages received by the +incoming+ address to the +outgoing+ address.
       #
-      def initialize reactor, incoming, outgoing, verbose = false
+      def initialize reactor, incoming, outgoing, opts = {:verbose => false}
         incoming = Address.from_string incoming if incoming.kind_of? String
         outgoing = Address.from_string outgoing if outgoing.kind_of? String
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new reactor, incoming, verbose
-        @handler_out = Handler.new reactor, outgoing, verbose
+        @handler_in = Handler.new reactor, incoming, opts
+        @handler_out = Handler.new reactor, outgoing, opts
 
         # create each socket and pass in the appropriate handler
         @incoming = reactor.sub_socket @handler_in
