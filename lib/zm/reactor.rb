@@ -39,10 +39,30 @@ module ZMQMachine
   class Reactor
     attr_reader :name
 
+    # +name+ provides a name for this reactor instance. It's unused
+    # at present but may be used in the future for allowing multiple
+    # reactors to communicate amongst each other.
+    #
     # +poll_interval+ is the number of milliseconds to block while
     # waiting for new 0mq socket events; default is 10
     #
-    def initialize name, poll_interval = 10
+    # +opts+ may contain a key +:zeromq_context+. When this
+    # hash is provided, the value for :zeromq_context should be a
+    # 0mq context as created by ZMQ::Context.new. The purpose of
+    # providing a context to the reactor is so that multiple
+    # reactors can share a single context. Doing so allows for sockets
+    # within each reactor to communicate with each other via an
+    # :inproc transport (:inproc is misnamed, it should be :incontext).
+    # By not supplying this hash, the reactor will create and use
+    # its own 0mq context.
+    #
+    # +opts+ may also include a +:log_transport+ key. This should be
+    # a transport string for an endpoint that a logger client may connect
+    # to for publishing log messages. when this key is defined, the
+    # client is automatically created and connected to the indicated
+    # endpoint.
+    #
+    def initialize name, poll_interval = 10, opts = {}
       @name = name
       @running = false
       @thread = nil
@@ -53,11 +73,16 @@ module ZMQMachine
       @proc_queue_mutex = Mutex.new
 
       # could raise if it fails
-      @context = ZMQ::Context.new 1
+      @context = opts[:zeromq_context] || ZMQ::Context.new
       @poller = ZMQ::Poller.new
       @sockets = []
       @raw_to_socket = {}
       Thread.abort_on_exception = true
+
+      if opts[:log_transport]
+        @logger = LogClient.new self, opts[:log_transport]
+        @logging_enabled = true
+      end
     end
 
     # Returns true when the reactor is running OR while it is in the
@@ -153,9 +178,15 @@ module ZMQMachine
     # Removes the given +sock+ socket from the reactor context. It is deregistered
     # for new events and closed. Any queued messages are silently dropped.
     #
+    # Returns +true+ for a succesful close, +false+ otherwise.
+    #
     def close_socket sock
-      delete_socket sock
+      return false unless sock
+
+      removed = delete_socket sock
       sock.raw_socket.close
+
+      removed
     end
 
     # Creates a REQ socket and attaches +handler_instance+ to the
@@ -351,6 +382,35 @@ module ZMQMachine
       end
     end
 
+    def open_socket_count kind = :all
+      @sockets.inject(0) do |sum, socket|
+        if :all == kind || (socket.kind == kind)
+          sum + 1
+        else
+          sum
+        end
+      end
+    end
+
+    # Publishes log messages to an existing transport passed in to the Reactor
+    # constructor using the :log_transport key.
+    #
+    #  Reactor.new :log_transport => 'inproc://reactor_log'
+    #
+    # +level+ parameter refers to a key to indicate severity level, e.g. :warn,
+    # :debug, level0, level9, etc.
+    #
+    # +message+ is a plain string that will be written out in its entirety.
+    #
+    # When no :log_transport was defined when creating the Reactor, all calls
+    # just discard the messages.
+    #
+    def log level, message
+      if @logging_enabled
+        @logger.write [ZMQ::Message.new(level.to_s), ZMQ::Message.new(message.to_s)]
+      end
+    end
+
 
     private
 
@@ -409,10 +469,12 @@ module ZMQMachine
       @raw_to_socket[sock.raw_socket] = sock
     end
 
+    # Returns true when all steps succeed, false otherwise
+    #
     def delete_socket sock
-      @poller.delete sock.raw_socket
-      @sockets.delete sock
-      @raw_to_socket.delete sock.raw_socket
+      @poller.delete(sock.raw_socket) and
+      @sockets.delete(sock) and
+      @raw_to_socket.delete(sock.raw_socket)
     end
 
 
@@ -426,62 +488,5 @@ module ZMQMachine
 
   end # class Reactor
 
-
-  # Not implemented. Just a (broken) thought experiment at the moment.
-  #
-  class SyncReactor
-
-    def initialize name
-      @klass_path = ZMQMachine::Sync
-      @poll_interval = 10
-      @active = true
-      super name
-    end
-
-    def run blk = nil, &block
-      blk ||= block
-      @running = true
-
-      @thread = Thread.new do
-        @fiber = Fiber.new { |context| blk.call context }
-        func = Proc.new { |context| @fiber.resume context }
-
-        run_once func
-        while @running do
-          run_once
-        end
-
-        cleanup
-      end
-
-      self
-    end
-
-    def deactivate() @active = false; end
-
-    def active?() @active; end
-
-    def while_active? &blk
-      begin
-        while @active do
-          yield
-        end
-      rescue => e
-        p e
-      end
-
-      @running = false
-    end
-
-
-    private
-
-    def poll
-      @poller.poll @poll_interval
-
-      @poller.writables.each { |sock| sock.resume }
-      @poller.readables.each { |sock| sock.resume }
-    end
-  end # class SyncReactor
 
 end # module ZMQMachine
