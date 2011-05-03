@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{zmqmachine}
-  s.version = "0.4.0"
+  s.version = "0.5.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Chuck Remes"]
@@ -22,7 +22,7 @@ It is possible to extend the 0mq library to "poll" normal file
 descriptors. This isn't on my roadmap but patches are accepted.}
   s.email = %q{cremes@mac.com}
   s.extra_rdoc_files = ["History.txt", "README.rdoc", "version.txt"]
-  s.files = [".bnsignore", "History.txt", "README.rdoc", "Rakefile", "examples/fake_ftp.rb", "examples/one_handed_ping_pong.rb", "examples/ping_pong.rb", "examples/pub_sub.rb", "examples/pubsub_forwarder.rb", "examples/throttled_ping_pong.rb", "lib/zm/address.rb", "lib/zm/deferrable.rb", "lib/zm/devices.rb", "lib/zm/devices/forwarder.rb", "lib/zm/devices/queue.rb", "lib/zm/exceptions.rb", "lib/zm/message.rb", "lib/zm/reactor.rb", "lib/zm/sockets.rb", "lib/zm/sockets/base.rb", "lib/zm/sockets/pair.rb", "lib/zm/sockets/pub.rb", "lib/zm/sockets/rep.rb", "lib/zm/sockets/req.rb", "lib/zm/sockets/sub.rb", "lib/zm/sockets/xrep.rb", "lib/zm/sockets/xreq.rb", "lib/zm/timers.rb", "lib/zmqmachine.rb", "spec/spec_helper.rb", "spec/zmqmachine_spec.rb", "version.txt", "zmqmachine.gemspec"]
+  s.files = [".bnsignore", "History.txt", "README.rdoc", "Rakefile", "examples/fake_ftp.rb", "examples/one_handed_ping_pong.rb", "examples/ping_pong.rb", "examples/pub_sub.rb", "examples/pubsub_forwarder.rb", "examples/throttled_ping_pong.rb", "lib/zm/address.rb", "lib/zm/deferrable.rb", "lib/zm/devices.rb", "lib/zm/devices/forwarder.rb", "lib/zm/devices/queue.rb", "lib/zm/exceptions.rb", "lib/zm/log_client.rb", "lib/zm/message.rb", "lib/zm/reactor.rb", "lib/zm/sockets.rb", "lib/zm/sockets/base.rb", "lib/zm/sockets/pair.rb", "lib/zm/sockets/pub.rb", "lib/zm/sockets/rep.rb", "lib/zm/sockets/req.rb", "lib/zm/sockets/sub.rb", "lib/zm/sockets/xrep.rb", "lib/zm/sockets/xreq.rb", "lib/zm/timers.rb", "lib/zmqmachine.rb", "spec/spec_helper.rb", "spec/reactor_spec.rb", "version.txt", "zmqmachine.gemspec"]
   s.homepage = %q{http://github.com/chuckremes/zmqmachine}
   s.rdoc_options = ["--main", "README.rdoc"]
   s.require_paths = ["lib"]

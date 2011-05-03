@@ -1,3 +1,51 @@
+== 0.5.0 / 2011-03-3
+  * Changed the constructor for the ZM::Reactor class. It now takes
+    an optional third hash argument. One of the keys that it uses
+    is :zeromq_context. This allows a user to create a master 0mq
+    context and share it with multiple reactors. The point of that is
+    to allow the use of the :inproc transport. That transport is
+    somewhat misnamed since it only allows "inprocess" communication
+    between sockets created by the same context. I needed :inproc to
+    work around a 0mq memory leak (still unfixed) and discovered this
+    issue.
+    A second key is :log_transport which is used by the logging
+    facility.
+    In the future, the first two arguments to ZM::Reactor will likely
+    be rolled into the hash argument. That will be a backwards-
+    incompatible change, so I'm hoping folks read these notes and
+    start preparing.
+  * Many fixes to ZM::Timers. Cancellation is more intelligent about
+    matching timers. Inspection of timers also provides better detail
+    about their contents. Lastly, expired timer removal is much clearer
+    in how it functions *and* it is faster by an order of magnitude.
+    (Note: Array#shift is *way faster* than Array#delete_at(0)).
+  * Timer expiration has changed. Originally, timers fired only when
+    the current time was *greater than* its firing time. Now timers
+    fire when the current time is *greater than or equal to* its firing
+    time.
+  * Modified how arguments are passed to the Forwarder and Queue
+    devices.
+  * Devices now default to a ZMQ::LINGER of 0 (drop messages
+    immediately upon socket close) and a ZMQ::HWM of 1 (only allow
+    1 outstanding message between senders and receivers). These
+    parameters can be modified using the new argument hash.
+  * ZM::Address now supports the :inproc transport.
+  * Fixed a memory leak where a message was not released when an
+    internal recv operation returned EAGAIN. The code was leaking an
+    empty ZMQ::Message every time.
+  * Added a facility for logging. When a Reactor is instantiated a
+    user may pass in a transport string that indicates where the
+    reactor may *connect* and publish log messages. Part of the
+    contract is that this transport already has a listener bound
+    to it before the connection is attempted (e.g. for inproc
+    transports). If inproc is used, then the user also needs to 
+    pass in the shared context via :zeromq_context.
+  * Fixed a bug in Socket#send_messages where EAGAIN was not always
+    properly detected and bubbled up to its caller.
+  * Refactored socket deletion. Hopefully it is easier to understand.
+    
+== 0.4.1 / Unreleased
+
 == 0.4.0 / 2010-12-16
   * Replaced SortedSet in Timers with an Array and a custom routine
     for finding the in-order index for an insert. The routine
