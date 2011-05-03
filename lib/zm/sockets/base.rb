@@ -102,7 +102,11 @@ module ZMQMachine
       # May raise a ZMQ::SocketError.
       #
       def send_message message, multipart = false
-        queued = @raw_socket.send message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
+        begin
+          queued = @raw_socket.send message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
+        rescue ZMQ::ZeroMQError => e
+          queued = false
+        end
         queued
       end
 
@@ -125,12 +129,12 @@ module ZMQMachine
       # May raise a ZMQ::SocketError.
       #
       def send_messages messages
-        rc = false
+        rc = true
         i = 0
         size = messages.size
 
         # loop through all messages but the last
-        while size > 1 && i < size - 1 do
+        while rc && size > 1 && i < size - 1 do
           rc = send_message messages.at(i), true
           i += 1
         end
@@ -140,7 +144,7 @@ module ZMQMachine
 
         # send the last message without the multipart arg to flush
         # the message to the 0mq queue
-        rc = send_message messages.last if size > 0
+        rc = send_message messages.last if rc && size > 0
         rc
       end
 
@@ -208,9 +212,15 @@ module ZMQMachine
           if rc
             rc = 0 # callers expect 0 for success, not true
             messages << message
+          else
+            # got EAGAIN most likely
+            message.close
+            message = nil
+            rc = false
           end
           
         rescue ZMQ::ZeroMQError => e
+          message.close if message
           rc = e
         end
 
@@ -223,6 +233,7 @@ module ZMQMachine
           @state = :ready
           @handler.on_readable self, messages
         else
+          # this branch is never called
           @handler.on_readable_error self, rc
         end
       end
