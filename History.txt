@@ -1,3 +1,13 @@
+
+== 0.5.1 / 2011-05-03
+  * Added Reactor#oneshot_timer_at for scheduling a timer to fire at
+    an exact time.
+  * Changed Reactor#next_tick to use #shift instead of #pop for running
+    blocks. Originally it was running the blocks in the reverse order
+    that #next_tick was called. Blocks are now run in the *same* order
+    as they were created by a call to #next_tick.
+  * Added a timestamp to all messages created using Reactor#log.
+  
 == 0.5.0 / 2011-03-3
   * Changed the constructor for the ZM::Reactor class. It now takes
     an optional third hash argument. One of the keys that it uses
