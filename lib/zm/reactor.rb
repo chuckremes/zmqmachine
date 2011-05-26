@@ -73,7 +73,14 @@ module ZMQMachine
       @proc_queue_mutex = Mutex.new
 
       # could raise if it fails
-      @context = opts[:zeromq_context] || ZMQ::Context.new
+      @context = if opts[:zeromq_context]
+        @shared_context = true
+        opts[:zeromq_context]
+      else
+        @shared_context = false
+        ZMQ::Context.new
+      end
+
       @poller = ZMQ::Poller.new
       @sockets = []
       @raw_to_socket = {}
@@ -83,6 +90,10 @@ module ZMQMachine
         @logger = LogClient.new self, opts[:log_transport]
         @logging_enabled = true
       end
+    end
+    
+    def shared_context?
+      @shared_context
     end
 
     # Returns true when the reactor is running OR while it is in the
@@ -158,8 +169,8 @@ module ZMQMachine
     def kill
       if running?
         @stopping = true
-        @thread.kill
         cleanup
+        @thread.kill
       end
     end
 
@@ -345,7 +356,7 @@ module ZMQMachine
       blk ||= timer_proc
       @timers.add_oneshot delay, blk
     end
-    
+
     # Creates a timer that will fire once at a specific
     # time as returned by ZM::Timers.now_converted.
     #
@@ -423,7 +434,8 @@ module ZMQMachine
     def log level, message
       if @logging_enabled
         now = Time.now
-        timestamp = now.strftime "%Y%m%d-%H:%M:%S.#{now.usec} %Z"
+        usec = sprintf "%06d", now.usec
+        timestamp = now.strftime "%Y%m%d-%H:%M:%S.#{usec} %Z"
         @logger.write [ZMQ::Message.new(level.to_s), ZMQ::Message.new(timestamp), ZMQ::Message.new(message.to_s)]
       end
     end
@@ -442,7 +454,7 @@ module ZMQMachine
     def cleanup
       # work on a dup since #close_socket deletes from @sockets
       @sockets.dup.each { |sock| close_socket sock }
-      @context.terminate
+      @context.terminate unless shared_context?
       @running = false
     end
 
