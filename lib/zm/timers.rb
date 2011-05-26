@@ -66,7 +66,19 @@ module ZMQMachine
       blk ||= timer_proc
       return nil unless blk
 
-      timer = Timer.new self, delay, false, blk
+      timer = Timer.new :timers => self, :delay => delay, :periodical => false, :timer_proc => blk
+      add timer
+      timer
+    end
+    
+    # Adds a non-periodical, one-shot timer to be fired at
+    # the specified time.
+    #
+    def add_oneshot_at exact_time, timer_proc = nil, &blk
+      blk ||= timer_proc
+      return nil unless blk
+      
+      timer = Timer.new :timers => self, :exact_time => exact_time, :periodical => false, :timer_proc => blk
       add timer
       timer
     end
@@ -82,7 +94,7 @@ module ZMQMachine
       blk ||= timer_proc
       return nil unless blk
 
-      timer = Timer.new self, delay, true, blk
+      timer = Timer.new :timers => self, :delay => delay, :periodical => true, :timer_proc => blk
       add timer
       timer
     end
@@ -249,11 +261,12 @@ module ZMQMachine
 
     # +delay+ is in milliseconds
     #
-    def initialize timers, delay, periodical, timer_proc = nil, &blk
-      @timers = timers
-      @delay = delay.to_i
-      @periodical = periodical
-      @timer_proc = timer_proc || blk
+    def initialize opts
+      @timers = opts[:timers]
+      @delay = opts[:delay].to_i
+      @periodical = opts[:periodical]
+      @timer_proc = opts[:timer_proc]
+      @exact_time = opts[:exact_time]
       schedule_firing_time
     end
 
@@ -328,9 +341,13 @@ module ZMQMachine
     # next timer to fire at, 17 + delay 5 = 22
     # had it not been late, it would fire at 20
     def schedule_firing_time
-      @initiated = Timers.now
+      if @exact_time
+        @fire_time = @exact_time.to_f * 1_000
+      else
+        @initiated = Timers.now
 
-      @fire_time = @initiated + @delay
+        @fire_time = @initiated + @delay
+      end
     end
 
   end # class Timer
