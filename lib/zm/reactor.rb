@@ -345,6 +345,16 @@ module ZMQMachine
       blk ||= timer_proc
       @timers.add_oneshot delay, blk
     end
+    
+    # Creates a timer that will fire once at a specific
+    # time as returned by ZM::Timers.now_converted.
+    #
+    # +exact_time+ may be either a Time object or a Numeric.
+    #
+    def oneshot_timer_at exact_time, timer_proc = nil, &blk
+      blk ||= timer_proc
+      @timers.add_oneshot_at exact_time, blk
+    end
 
     # Creates a timer that will fire every +delay+ milliseconds until
     # it is explicitly cancelled. Expects either a +timer_proc+ proc
@@ -405,9 +415,16 @@ module ZMQMachine
     # When no :log_transport was defined when creating the Reactor, all calls
     # just discard the messages.
     #
+    #  reactor.log(:info, "some message")
+    #
+    # This produces output that looks like:
+    #    info|20110526-10:23:47.768796 CDT|some message
+    #
     def log level, message
       if @logging_enabled
-        @logger.write [ZMQ::Message.new(level.to_s), ZMQ::Message.new(message.to_s)]
+        now = Time.now
+        timestamp = now.strftime "%Y%m%d-%H:%M:%S.#{now.usec} %Z"
+        @logger.write [ZMQ::Message.new(level.to_s), ZMQ::Message.new(timestamp), ZMQ::Message.new(message.to_s)]
       end
     end
 
@@ -443,7 +460,7 @@ module ZMQMachine
       end
 
       until work.empty? do
-        work.pop.call
+        work.shift.call
       end
     end
 
