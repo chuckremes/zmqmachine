@@ -168,8 +168,8 @@ module ZMQMachine
     #
     def kill
       if running?
-        @stopping = true
         cleanup
+        @stopping = true
         @thread.kill
       end
     end
@@ -501,9 +501,11 @@ module ZMQMachine
     # Returns true when all steps succeed, false otherwise
     #
     def delete_socket sock
-      @poller.delete(sock.raw_socket) and
-      @sockets.delete(sock) and
-      @raw_to_socket.delete(sock.raw_socket)
+      poll_deleted = @poller.delete(sock.raw_socket)
+      sockets_deleted = @sockets.delete(sock)
+      ffi_deleted = @raw_to_socket.delete(sock.raw_socket)
+      
+      poll_deleted && sockets_deleted && ffi_deleted
     end
 
 
