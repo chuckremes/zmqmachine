@@ -37,7 +37,7 @@
 module ZMQMachine
 
   class Reactor
-    attr_reader :name
+    attr_reader :name, :context, :logger
 
     # +name+ provides a name for this reactor instance. It's unused
     # at present but may be used in the future for allowing multiple
@@ -91,7 +91,7 @@ module ZMQMachine
         @logging_enabled = true
       end
     end
-    
+
     def shared_context?
       @shared_context
     end
@@ -126,16 +126,16 @@ module ZMQMachine
     end
 
     # Marks the reactor as eligible for termination. Then waits for the
-    # reactor thread to exit via #join (no timeout).
+    # reactor thread to exit via #join (optional timeout).
     #
     # The reactor is not forcibly terminated if it is currently blocked
     # by some long-running operation. Use #kill to forcibly terminate
     # the reactor.
     #
-    def stop
+    def stop delay = nil
       # wait until the thread loops around again and exits on its own
       @stopping = true
-      join
+      join delay
     end
 
     # Join on the thread running this reactor instance. Default behavior
@@ -318,6 +318,40 @@ module ZMQMachine
       sock
     end
 
+    # Creates a PUSH socket and attaches +handler_instance+ to the
+    # resulting socket. Usually paired with one or more
+    #  #pull_socket in the same or different reactor context.
+    #
+    # +handler_instance+ must implement the #on_writable and
+    # #on_writable_error methods. The reactor will call those methods
+    # based upon new events. This socket type can *only* write; it
+    # can never recv messages.
+    #
+    # All handlers must implement the #on_attach method.
+    #
+    def push_socket handler_instance
+      sock = ZMQMachine::Socket::Push.new @context, handler_instance
+      save_socket sock
+      sock
+    end
+
+    # Creates a PULL socket and attaches +handler_instance+ to the
+    # resulting socket. Usually paired with one or more
+    #  #push_socket in the same or different reactor context.
+    #
+    # +handler_instance+ must implement the #on_readable and
+    # #on_readable_error methods. The reactor will call those methods
+    # based upon new events. This socket type can *only* read; it
+    # can never write/send messages.
+    #
+    # All handlers must implement the #on_attach method.
+    #
+    def pull_socket handler_instance
+      sock = ZMQMachine::Socket::Pull.new @context, handler_instance
+      save_socket sock
+      sock
+    end
+
     # Registers the +sock+ for POLLOUT events that will cause the
     # reactor to call the handler's on_writable method.
     #
@@ -433,10 +467,7 @@ module ZMQMachine
     #
     def log level, message
       if @logging_enabled
-        now = Time.now
-        usec = sprintf "%06d", now.usec
-        timestamp = now.strftime "%Y%m%d-%H:%M:%S.#{usec} %Z"
-        @logger.write [ZMQ::Message.new(level.to_s), ZMQ::Message.new(timestamp), ZMQ::Message.new(message.to_s)]
+        @logger.write level, message
       end
     end
 
@@ -452,6 +483,8 @@ module ZMQMachine
     # Close each open socket and terminate the reactor context; this will
     # release the native memory backing each of these objects
     def cleanup
+      @proc_queue_mutex.synchronize { @proc_queue.clear }
+      
       # work on a dup since #close_socket deletes from @sockets
       @sockets.dup.each { |sock| close_socket sock }
       @context.terminate unless shared_context?
@@ -483,7 +516,7 @@ module ZMQMachine
         # doing so spikes the CPU even though there is no work to do
         # take a short nap here (10ms by default) unless there are procs scheduled
         # to run (e.g. via next_tick)
-        sleep(@poll_interval / 1000)
+        sleep(@poll_interval / 1000.0)
       else
         @poller.poll @poll_interval
       end
@@ -504,7 +537,7 @@ module ZMQMachine
       poll_deleted = @poller.delete(sock.raw_socket)
       sockets_deleted = @sockets.delete(sock)
       ffi_deleted = @raw_to_socket.delete(sock.raw_socket)
-      
+
       poll_deleted && sockets_deleted && ffi_deleted
     end
 

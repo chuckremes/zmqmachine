@@ -71,9 +71,16 @@ module ZMQMachine
     # All messages passed here are guaranteed to be written in the *order they were
     # received*.
     #
-    def write messages
-      @message_queue << messages
+    def write level, message
+      now = Time.now
+      usec = sprintf "%06d", now.usec
+      timestamp = now.strftime "%Y%m%d-%H:%M:%S.#{usec} %Z"
+      @message_queue << [ZMQ::Message.new(level.to_s), ZMQ::Message.new(timestamp), ZMQ::Message.new(message.to_s)]
       write_queue_to_socket
+    end
+    
+    def puts string
+      write 'untagged', string
     end
 
     # Prints each message when global debugging is enabled.
