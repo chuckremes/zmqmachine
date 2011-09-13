@@ -1,4 +1,16 @@
-
+== 0.5.2 / 2011-07-21
+  * Added PUSH and PULL socket types. Never needed them until now.
+  * Added a +context+ reader to the Reactor class.
+  * Changed default behavior for all sockets to use ZMQ:LINGER 1
+    as a socket option. By default, this prevents a call to
+    #close from hanging forever if there are unsent messages in
+    queue.
+  * Expose #logger accessor (read-only). 
+  * Refactored Reactor#log so that most of the work is performed in 
+    the LogClient (tell, don't ask!).
+  * Added LogClient#puts so that a logger instance can be passed to
+    other objects who expect an IO-like object that responds to #puts.
+    
 == 0.5.1 / 2011-05-03
   * Added Reactor#oneshot_timer_at for scheduling a timer to fire at
     an exact time.
