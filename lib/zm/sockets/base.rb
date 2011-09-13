@@ -43,13 +43,16 @@ module ZMQMachine
       attr_reader :poll_options
 
       def initialize context, handler
-        @state = :init
         @context = context
         @bindings = []
         @connections = []
 
         @handler = handler
         @raw_socket = allocate_socket @context
+        
+        # default ZMQ::LINGER to 1 millisecond so closing a socket
+        # doesn't block forever
+        @raw_socket.setsockopt ZMQ::LINGER, 1
         attach @handler
       end
 
@@ -168,13 +171,13 @@ module ZMQMachine
         
         # loop and deliver all messages until the socket returns EAGAIN
         while 0 == rc
-          messages = []
-          rc = read_message_part messages
+          parts = []
+          rc = read_message_part parts
           #puts "resume_read: rc1 [#{rc}], more_parts? [#{@raw_socket.more_parts?}]"
 
           while 0 == rc && @raw_socket.more_parts?
             #puts "get next part"
-            rc = read_message_part messages
+            rc = read_message_part parts
             #puts "resume_read: rc2 [#{rc}]"
           end
           #puts "no more parts, ready to deliver"
@@ -182,36 +185,31 @@ module ZMQMachine
           # only deliver the messages when rc is 0; otherwise, we
           # may have gotten EAGAIN and no message was read;
           # don't deliver empty messages
-          deliver messages, rc if 0 == rc
+          deliver parts, rc if 0 == rc
         end
       end
 
       # Used by the reactor. Never called by user code.
       #
       def resume_write
-        @state = :ready
         @handler.on_writable self
       end
 
       def inspect
-        "kind [#{@kind}] poll options [#{@poll_options}] state [#{@state}]"
+        "kind [#{@kind}] poll options [#{@poll_options}]"
       end
 
 
       private
 
-      def ready_state?
-        :ready == @state
-      end
-
-      def read_message_part messages
+      def read_message_part parts
         message = ZMQ::Message.new
         begin
           rc = @raw_socket.recv message, ZMQ::NOBLOCK
           
           if rc
             rc = 0 # callers expect 0 for success, not true
-            messages << message
+            parts << message
           else
             # got EAGAIN most likely
             message.close
@@ -227,11 +225,10 @@ module ZMQMachine
         rc
       end
 
-      def deliver messages, rc
-        #puts "deliver: rc [#{rc}], messages #{messages.inspect}"
+      def deliver parts, rc
+        #puts "deliver: rc [#{rc}], parts #{parts.inspect}"
         if 0 == rc
-          @state = :ready
-          @handler.on_readable self, messages
+          @handler.on_readable self, parts
         else
           # this branch is never called
           @handler.on_readable_error self, rc
