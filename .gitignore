@@ -8,6 +8,7 @@ nbproject
 *.bundle
 *.o
 .DS_Store
+.rbx
 examples/work
 benchmark
 *~
