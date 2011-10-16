@@ -72,7 +72,7 @@ module ZMQMachine
       @proc_queue = []
       @proc_queue_mutex = Mutex.new
 
-      # could raise if it fails
+      # could raise if it fails to allocate a Context
       @context = if opts[:zeromq_context]
         @shared_context = true
         opts[:zeromq_context]
@@ -211,9 +211,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def req_socket handler_instance
-      sock = ZMQMachine::Socket::Req.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Req
     end
 
     # Creates a REP socket and attaches +handler_instance+ to the
@@ -227,9 +225,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def rep_socket handler_instance
-      sock = ZMQMachine::Socket::Rep.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Rep
     end
 
     # Creates a XREQ socket and attaches +handler_instance+ to the
@@ -244,9 +240,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def xreq_socket handler_instance
-      sock = ZMQMachine::Socket::XReq.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::XReq
     end
 
     # Creates a XREP socket and attaches +handler_instance+ to the
@@ -261,9 +255,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def xrep_socket handler_instance
-      sock = ZMQMachine::Socket::XRep.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::XRep
     end
 
     # Creates a PAIR socket and attaches +handler_instance+ to the
@@ -279,9 +271,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def pair_socket handler_instance
-      sock = ZMQMachine::Socket::Pair.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Pair
     end
 
     # Creates a PUB socket and attaches +handler_instance+ to the
@@ -296,9 +286,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def pub_socket handler_instance
-      sock = ZMQMachine::Socket::Pub.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Pub
     end
 
     # Creates a SUB socket and attaches +handler_instance+ to the
@@ -313,9 +301,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def sub_socket handler_instance
-      sock = ZMQMachine::Socket::Sub.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Sub
     end
 
     # Creates a PUSH socket and attaches +handler_instance+ to the
@@ -330,9 +316,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def push_socket handler_instance
-      sock = ZMQMachine::Socket::Push.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Push
     end
 
     # Creates a PULL socket and attaches +handler_instance+ to the
@@ -347,9 +331,7 @@ module ZMQMachine
     # All handlers must implement the #on_attach method.
     #
     def pull_socket handler_instance
-      sock = ZMQMachine::Socket::Pull.new @context, handler_instance
-      save_socket sock
-      sock
+      create_socket handler_instance, ZMQMachine::Socket::Pull
     end
 
     # Registers the +sock+ for POLLOUT events that will cause the
@@ -484,7 +466,7 @@ module ZMQMachine
     # release the native memory backing each of these objects
     def cleanup
       @proc_queue_mutex.synchronize { @proc_queue.clear }
-      
+
       # work on a dup since #close_socket deletes from @sockets
       @sockets.dup.each { |sock| close_socket sock }
       @context.terminate unless shared_context?
@@ -510,6 +492,8 @@ module ZMQMachine
     end
 
     def poll
+      rc = 0
+
       if (@proc_queue.empty? && @sockets.empty?) || @poller.size.zero?
         # when there are no sockets registered, @poller.poll would return immediately;
         # the same is true when sockets are registered but *not* for any events;
@@ -518,11 +502,28 @@ module ZMQMachine
         # to run (e.g. via next_tick)
         sleep(@poll_interval / 1000.0)
       else
-        @poller.poll @poll_interval
+        rc = @poller.poll @poll_interval
       end
 
-      @poller.readables.each { |sock| @raw_to_socket[sock].resume_read }
-      @poller.writables.each { |sock| @raw_to_socket[sock].resume_write }
+      if ZMQ::Util.resultcode_ok?(rc)
+        @poller.readables.each { |sock| @raw_to_socket[sock].resume_read }
+        @poller.writables.each { |sock| @raw_to_socket[sock].resume_write }
+      end
+
+      rc
+    end
+
+    def create_socket handler_instance, kind
+      sock = nil
+      
+      begin
+        sock = kind.new @context, handler_instance
+        save_socket sock
+      rescue ZMQ::ContextError => e
+        sock = nil
+      end
+      
+      sock
     end
 
     def save_socket sock
@@ -546,7 +547,7 @@ module ZMQMachine
     # library does this for us.
     #
     def determine_interval interval
-      # set a lower bound of 1000 usec so we don't burn up the CPU
+      # set a lower bound of 1 millisec so we don't burn up the CPU
       interval <= 0 ? 1.0 : interval.to_i
     end
 
