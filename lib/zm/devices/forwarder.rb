@@ -70,16 +70,16 @@ module ZMQMachine
           @address = address
           @verbose = opts[:verbose] || false
           @opts = opts
-          
+
           @messages = []
         end
 
         def on_attach socket
-          socket.identity = "forwarder.#{Kernel.rand(999_999_999)}"
           set_options socket
           rc = socket.bind @address
+          error_check(rc)
           #FIXME: error handling!
-          socket.subscribe_all if :sub == socket.kind
+          error_check(socket.subscribe_all) if :sub == socket.kind
         end
 
         def on_writable socket
@@ -91,15 +91,42 @@ module ZMQMachine
 
           if @socket_out
             rc = socket_out.send_messages messages
+            error_check(rc)
             messages.each { |message| message.close }
           end
         end
-        
-        def set_options socket
-          socket.raw_socket.setsockopt ZMQ::HWM, (@opts[:hwm] || 1)
-          socket.raw_socket.setsockopt ZMQ::LINGER, (@opts[:linger] || 0)
+
+        def on_readable_error socket, return_code
+          STDERR.puts "#{self.class}#on_readable_error, rc [#{return_code}], errno [#{ZMQ::Util.errno}], descr [#{ZMQ::Util.error_string}]"
         end
-        
+
+        if LibZMQ.version2?
+
+          def set_options socket
+            error_check(socket.raw_socket.setsockopt(ZMQ::HWM, (@opts[:hwm] || 1)))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          end
+
+        elsif LibZMQ.version3?
+
+          def set_options socket
+            error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, (@opts[:hwm] || 1)))
+            error_check(socket.raw_socket.setsockopt(ZMQ::RCVHWM, (@opts[:hwm] || 1)))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          end
+
+        end
+
+        def error_check rc
+          if ZMQ::Util.resultcode_ok?(rc)
+            false
+          else
+            STDERR.puts "Operation failed, errno [#{ZMQ::Util.errno}] description [#{ZMQ::Util.error_string}]"
+            caller(1).each { |callstack| STDERR.puts(callstack) }
+            true
+          end
+        end
+
       end # class Handler
 
 

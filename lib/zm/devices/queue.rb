@@ -76,9 +76,9 @@ module ZMQMachine
         end
 
         def on_attach socket
-          socket.identity = "queue.#{Kernel.rand(999_999_999)}"
           set_options socket
           rc = socket.bind @address
+          error_check(rc)
           #FIXME: error handling!
         end
 
@@ -95,12 +95,34 @@ module ZMQMachine
             messages.each { |message| message.close }
           end
         end
-        
-        def set_options socket
-          socket.raw_socket.setsockopt ZMQ::HWM, (@opts[:hwm] || 1)
-          socket.raw_socket.setsockopt ZMQ::LINGER, (@opts[:linger] || 0)
+
+        if LibZMQ.version2?
+
+          def set_options socket
+            error_check(socket.raw_socket.setsockopt(ZMQ::HWM, (@opts[:hwm] || 1)))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          end
+
+        elsif LibZMQ.version3?
+
+          def set_options socket
+            error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, (@opts[:hwm] || 1)))
+            error_check(socket.raw_socket.setsockopt(ZMQ::RCVHWM, (@opts[:hwm] || 1)))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          end
+
         end
-        
+
+        def error_check rc
+          if ZMQ::Util.resultcode_ok?(rc)
+            false
+          else
+            STDERR.puts "Operation failed, errno [#{ZMQ::Util.errno}] description [#{ZMQ::Util.error_string}]"
+            caller(1).each { |callstack| STDERR.puts(callstack) }
+            true
+          end
+        end
+
       end # class Handler
 
 
