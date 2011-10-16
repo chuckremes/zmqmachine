@@ -1,15 +1,8 @@
+
 require 'rubygems'
 require 'ffi-rzmq'
+require '../lib/zmqmachine'
 
-require File.expand_path(File.join(File.dirname(__FILE__), %w[.. lib zmqmachine]))
-
-
-def assert rc
-  unless rc >= 0
-    STDERR.puts "Failed with rc [#{rc}], errno [#{ZMQ::Util.errno}], msg [#{ZMQ::Util.error_string}]"
-    STDERR.puts "0mq call failed! #{caller(1)}"
-  end
-end
 
 # Shows how to use a PUB socket to send messages in a fanout
 # manner. A set of SUB sockets subscribe using different topic
@@ -32,9 +25,8 @@ class PublisherHandler
   end
 
   def on_attach socket
-    @context.register_writable socket
     address = ZM::Address.new '127.0.0.1', @port, :tcp
-    assert(socket.bind(address))
+    rc = socket.bind address
   end
 
   def on_writable socket
@@ -48,7 +40,7 @@ class PublisherHandler
     end
 
     message = ZMQ::Message.new payload
-    assert(socket.send_message(message))
+    socket.send_message message
     @sent_count += 1
   end
 end
@@ -67,7 +59,7 @@ class SubscriberHandler
   def on_attach socket
     @ports.each do |port|
       address = ZM::Address.new '127.0.0.1', port, :tcp
-      assert(socket.connect(address))
+      rc = socket.connect address
 
       @topics.each do |topic|
         puts "subscribe to [#{topic}]"

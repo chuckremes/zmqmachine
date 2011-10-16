@@ -1,7 +1,7 @@
+
 require 'rubygems'
 require 'ffi-rzmq'
-
-require File.expand_path(File.join(File.dirname(__FILE__), %w[.. lib zmqmachine]))
+require '../lib/zmqmachine'
 
 # This example illustrates how a single handler can be used
 # by multiple sockets.
@@ -9,15 +9,7 @@ require File.expand_path(File.join(File.dirname(__FILE__), %w[.. lib zmqmachine]
 
 
 
-Allowed_pongs = 100_000_000
-
-def assert rc
-  unless rc >= 0
-    STDERR.puts "Failed with rc [#{rc}], errno [#{ZMQ::Util.errno}], msg [#{ZMQ::Util.error_string}]"
-    STDERR.puts "0mq call failed! #{caller(1)}"
-  end
-end
-
+Allowed_pongs = 100_000
 
 class PingPongHandler
   attr_reader :sent_count, :received_count
@@ -33,16 +25,15 @@ class PingPongHandler
 
     case socket.kind
     when :reply
-      assert(socket.bind(address))
+      rc = socket.bind address
     when :request
-      assert(socket.connect(address))
-      @context.register_writable socket
+      rc = socket.connect address
       @context.register_readable socket
     end
   end
 
   def on_writable socket
-     assert(socket.send_message_string("#{'a' * 2048}"))
+    rc = socket.send_message_string "#{'a' * 2048}"
     @sent_count += 1
 
     # after sending the first message, deregister for future write events
@@ -53,12 +44,12 @@ class PingPongHandler
     @received_count += 1
 
     if :reply == socket.kind
-      assert(socket.send_messages(messages))
+      #socket.send_message messages.first
+      rc = socket.send_message_string messages.first.copy_out_string
     else
-      assert(socket.send_messages(messages))
+      socket.send_message messages.first
     end
 
-    messages.each { |message| message.close }
     @sent_count += 1
     @context.next_tick { @context.stop } if @sent_count == Allowed_pongs
   end

@@ -66,11 +66,6 @@ class SubscriberHandler
     @received_count += 1
     sleep 0.01 if @sleep
   end
-  
-  def on_readable_error socket, return_code
-    STDERR.puts "Failed, [#{ZMQ::Util.error_string}]"
-    caller(1).each { |stack| STDERR.puts(stack) }
-  end
 end
 
 sleep_time = 5
