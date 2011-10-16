@@ -46,7 +46,6 @@ module ZMQMachine
         @kind = :reply
 
         super
-        @state = :ready
       end
 
       # Attach a handler to the REP socket.
@@ -66,24 +65,8 @@ module ZMQMachine
         super
       end
 
-      # +timeout+ is measured in milliseconds; default is 0 (never timeout)
-      def send_message message
-        unless waiting_for_request?
-          rc = super
-          @state = :waiting_for_request
-        else
-          rc = -1
-        end
-
-        rc
-      end
-
 
       private
-
-      def waiting_for_request?
-        :waiting_for_request == @state
-      end
 
       def allocate_socket context
         sock = ZMQ::Socket.new context.pointer, ZMQ::REP

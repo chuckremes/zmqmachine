@@ -68,7 +68,7 @@ module ZMQMachine
       end
 
       def subscribe topic
-        @raw_socket.setsockopt ZMQ::SUBSCRIBE, topic
+        @raw_socket.setsockopt(ZMQ::SUBSCRIBE, topic)
       end
 
       def subscribe_all

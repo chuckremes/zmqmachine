@@ -42,7 +42,7 @@ module ZMQMachine
       include ZMQMachine::Socket::Base
 
       def initialize context, handler
-        @poll_options = ZMQ::POLLIN | ZMQ::POLLOUT
+        @poll_options = ZMQ::POLLIN
         @kind = :xreply
 
         super

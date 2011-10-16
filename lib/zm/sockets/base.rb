@@ -42,6 +42,17 @@ module ZMQMachine
       attr_reader :raw_socket, :kind
       attr_reader :poll_options
 
+      def self.create context, handler
+        socket = nil
+        begin
+          socket = new context, handler
+        rescue => e
+          socket = nil
+        end
+
+        socket
+      end
+
       def initialize context, handler
         @context = context
         @bindings = []
@@ -49,10 +60,11 @@ module ZMQMachine
 
         @handler = handler
         @raw_socket = allocate_socket @context
-        
+
         # default ZMQ::LINGER to 1 millisecond so closing a socket
         # doesn't block forever
-        @raw_socket.setsockopt ZMQ::LINGER, 1
+        rc = @raw_socket.setsockopt ZMQ::LINGER, 1
+        raise SetsockoptError.new("Setting LINGER on socket failed at line #{caller(0)}") unless ZMQ::Util.resultcode_ok?(rc)
         attach @handler
       end
 
@@ -74,118 +86,82 @@ module ZMQMachine
       # endpoint.
       #
       def bind address
-        begin
-          @bindings << address
-          @raw_socket.bind address.to_s
-          true
-        rescue ZMQ::ZeroMQError
-          @bindings.pop
-          false
-        end
+        @bindings << address
+        rc = @raw_socket.bind address.to_s
+        @bindings.pop unless ZMQ::Util.resultcode_ok?(rc)
+        rc
       end
 
       # Connect this 0mq socket to the 0mq socket bound to the endpoint
       # described by the +address+.
       #
       def connect address
-        begin
-          @connections << address
-          @raw_socket.connect address.to_s
-          true
-        rescue ZMQ::ZeroMQError
-          @connections.pop
-          false
-        end
+        @connections << address
+        rc = @raw_socket.connect address.to_s
+        @connections.pop unless ZMQ::Util.resultcode_ok?(rc)
+        rc
       end
 
       # Called to send a ZMQ::Message that was populated with data.
       #
-      # Returns true on success, false otherwise.
-      #
-      # May raise a ZMQ::SocketError.
+      # Returns 0+ on success, -1 for failure. Use ZMQ::Util.resultcode_ok? and
+      # ZMQ::Util.errno to check for errors.
       #
       def send_message message, multipart = false
-        begin
-          queued = @raw_socket.send message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
-        rescue ZMQ::ZeroMQError => e
-          queued = false
-        end
-        queued
+        flag = multipart ? (ZMQ::SNDMORE | ZMQ::Util.nonblocking_flag) : ZMQ::Util.nonblocking_flag
+        @raw_socket.send(message, flag)
       end
 
       # Convenience method to send a string on the socket. It handles
       # the creation of a ZMQ::Message and populates it appropriately.
       #
-      # Returns true on success, false otherwise.
-      #
-      # May raise a ZMQ::SocketError.
+      # Returns 0+ for success, -1 for failure. Check ZMQ::Util.errno for
+      # details on the error.
       #
       def send_message_string message, multipart = false
-        queued = @raw_socket.send_string message, ZMQ::NOBLOCK | (multipart ? ZMQ::SNDMORE : 0)
-        queued
+        @raw_socket.send_string message, ZMQ::Util.nonblocking_flag | (multipart ? ZMQ::SNDMORE : 0)
       end
 
       # Convenience method for sending a multi-part message. The
-      # +messages+ argument must respond to :size, :at and :last (like
-      # an Array).
-      #
-      # May raise a ZMQ::SocketError.
+      # +messages+ argument must implement Enumerable.
       #
       def send_messages messages
-        rc = true
-        i = 0
-        size = messages.size
-
-        # loop through all messages but the last
-        while rc && size > 1 && i < size - 1 do
-          rc = send_message messages.at(i), true
-          i += 1
-        end
-        
-        # FIXME: bug; if any of the message parts fail (rc != 0) we don't see that here; the
-        # #send_message function should capture exceptions and turn them into integers for bubbling
-
-        # send the last message without the multipart arg to flush
-        # the message to the 0mq queue
-        rc = send_message messages.last if rc && size > 0
-        rc
+        @raw_socket.sendmsgs messages
       end
 
-      # Retrieve the IDENTITY value assigned to this socket.
-      #
-      def identity() @raw_socket.identity; end
+      if LibZMQ.version2? || LibZMQ.version3?
 
-      # Assign a custom IDENTITY value to this socket. Limit is
-      # 255 bytes and must be greater than 0 bytes.
-      #
-      def identity=(value) @raw_socket.identity = value; end
+        # Retrieve the IDENTITY value assigned to this socket.
+        #
+        def identity() @raw_socket.identity; end
+
+        # Assign a custom IDENTITY value to this socket. Limit is
+        # 255 bytes and must be greater than 0 bytes.
+        #
+        def identity=(value) @raw_socket.identity = value; end
+
+      end # version check
 
       # Used by the reactor. Never called by user code.
       #
-      # FIXME: need to rework all of this +rc+ stuff. The underlying lib returns
-      # nil when a NOBLOCK socket gets EAGAIN. It returns true when a message
-      # was successfully dequeued. The use of rc here is really ugly and wrong.
-      #
       def resume_read
         rc = 0
-        
-        # loop and deliver all messages until the socket returns EAGAIN
-        while 0 == rc
+        more = true
+
+        while ZMQ::Util.resultcode_ok?(rc) && more
           parts = []
-          rc = read_message_part parts
-          #puts "resume_read: rc1 [#{rc}], more_parts? [#{@raw_socket.more_parts?}]"
+          rc = @raw_socket.recvmsgs parts, ZMQ::Util.nonblocking_flag
 
-          while 0 == rc && @raw_socket.more_parts?
-            #puts "get next part"
-            rc = read_message_part parts
-            #puts "resume_read: rc2 [#{rc}]"
+          if ZMQ::Util.resultcode_ok?(rc)
+            deliver(parts, rc)
+          else
+            # verify errno corresponds to EAGAIN
+            if eagain?
+              more = false
+            elsif valid_socket_error?
+              deliver([], rc)
+            end
           end
-          #puts "no more parts, ready to deliver"
-
-          # only deliver the messages when rc is 0; otherwise, we
-          # may have gotten EAGAIN and no message was read;
-          # don't deliver empty messages
-          deliver parts, rc if 0 == rc
         end
       end
 
@@ -202,37 +178,28 @@ module ZMQMachine
 
       private
 
-      def read_message_part parts
-        message = ZMQ::Message.new
-        begin
-          rc = @raw_socket.recv message, ZMQ::NOBLOCK
-          
-          if rc
-            rc = 0 # callers expect 0 for success, not true
-            parts << message
-          else
-            # got EAGAIN most likely
-            message.close
-            message = nil
-            rc = false
-          end
-          
-        rescue ZMQ::ZeroMQError => e
-          message.close if message
-          rc = e
-        end
-
-        rc
-      end
-
       def deliver parts, rc
-        #puts "deliver: rc [#{rc}], parts #{parts.inspect}"
-        if 0 == rc
+        if ZMQ::Util.resultcode_ok?(rc)
           @handler.on_readable self, parts
         else
           # this branch is never called
           @handler.on_readable_error self, rc
         end
+      end
+
+      def eagain?
+        ZMQ::EAGAIN == ZMQ::Util.errno
+      end
+
+      def valid_socket_error?
+        errno = ZMQ::Util.errno
+
+        ZMQ::ENOTSUP  == errno ||
+        ZMQ::EFSM     == errno ||
+        ZMQ::ETERM    == errno ||
+        ZMQ::ENOTSOCK == errno ||
+        ZMQ::EINTR    == errno ||
+        ZMQ::EFAULT   == errno
       end
 
     end # module Base

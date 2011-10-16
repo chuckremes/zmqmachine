@@ -42,11 +42,10 @@ module ZMQMachine
       include ZMQMachine::Socket::Base
 
       def initialize context, handler
-        @poll_options = ZMQ::POLLOUT
+        @poll_options = 0
         @kind = :request
 
         super
-        @state = :ready
       end
 
       # Attach a handler to the REQ socket.
@@ -66,24 +65,8 @@ module ZMQMachine
         super
       end
 
-      # +timeout+ is measured in milliseconds; default is 0 (never timeout)
-      def send_message message
-        unless waiting_for_reply?
-          rc = super
-          @state = :waiting_for_reply
-        else
-          rc = -1
-        end
-
-        rc
-      end
-
 
       private
-
-      def waiting_for_reply?
-        :waiting_for_reply == @state
-      end
 
       def allocate_socket context
         sock = ZMQ::Socket.new context.pointer, ZMQ::REQ
