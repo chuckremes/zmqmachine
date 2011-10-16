@@ -36,8 +36,13 @@
 
 module ZMQMachine
 
-  #FIXME: needs to handle ipc and inproc transports better, e.g.
-  # there is no port component to either one.
+  # A simple wrapper for creating transport strings for the 0mq
+  # library to use for bind and connect calls.
+  #
+  # It is recommended to use Address.create instead of calling #new
+  # directly on the class. Using this factory method allows user code
+  # to avoid creating a begin/rescue/end structure and dealing with
+  # exceptions. Failed creation will return a nil value.
   #
   class Address
     attr_reader :host, :port, :transport
@@ -57,21 +62,34 @@ module ZMQMachine
         "#{@transport}://#{@host}"
       end
     end
+    
+    # Recommended to use this class method as a factory versus calling
+    # #new directly. Returns an Address object upon successful creation
+    # and nil if creation fails.
+    #
+    def self.create host, port, type = :tcp
+      address = nil
+      begin
+        address = Address.new host, port, type
+      rescue UnknownAddressError
+        address = nil
+      end
+      
+      address
+    end
 
 
     # Converts strings with the format "type://host:port" into
     # an Address instance.
     #
     def self.from_string string
-      #FIXME: needs error checking and ability to handle inproc/ipc types
-      #
       # should also return nil or some other error indication when parsing fails
       split = string.split(':')
       type = split[0]
       port = split[2] # nil for ipc/inproc and non-empty for tcp
       host = split[1].slice(2, split[1].length) #sub('//', '')
 
-      Address.new host, port, type.downcase.to_sym
+      Address.create host, port, type.downcase.to_sym
     end
 
     private
