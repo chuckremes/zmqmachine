@@ -1,7 +1,7 @@
-
 require 'rubygems'
 require 'ffi-rzmq'
-require '../lib/zmqmachine'
+
+require File.expand_path(File.join(File.dirname(__FILE__), %w[.. lib zmqmachine]))
 
 # This example illustrates how to write a simple set of
 # handlers for providing message ping-pong using
@@ -11,6 +11,12 @@ require '../lib/zmqmachine'
 
 Allowed_pongs = 100_000
 
+def assert rc
+  unless rc >= 0
+    STDERR.puts "Failed with rc [#{rc}], errno [#{ZMQ::Util.errno}], msg [#{ZMQ::Util.error_string}]"
+    STDERR.puts "0mq call failed! #{caller(1)}"
+  end
+end
 
 class PongHandler
   attr_reader :sent_count, :received_count
@@ -23,15 +29,25 @@ class PongHandler
 
   def on_attach socket
     address = ZM::Address.new '127.0.0.1', 5555, :tcp
-    rc = socket.bind address
+    assert(socket.bind(address))
   end
 
   def on_readable socket, messages
     @received_count += 1
-    socket.send_message messages.first
+    assert(socket.send_messages(messages))
+    messages.each { |message| message.close }
     @sent_count += 1
 
     @context.next_tick { @context.stop } if @sent_count == Allowed_pongs
+  end
+  
+  def on_writable socket
+    puts "#{self.class} deregister writable"
+    @context.deregister_writable socket
+  end
+  
+  def on_readable_error socket, rc
+    puts "ERROR: #{self.class} socket got rc [#{rc}]"
   end
 end
 
@@ -46,26 +62,43 @@ class PingHandler
 
   def on_attach socket
     @context.register_readable socket
+    @context.deregister_writable socket
     address = ZM::Address.new '127.0.0.1', 5555, :tcp
-    rc = socket.connect address
-    rc = socket.send_message_string "#{'a' * 2048}"
+    assert(socket.connect(address))
+    message = ZMQ::Message.new("#{'a' * 10}")
+    assert(socket.send_message(message))
+    message.close
     @sent_count += 1
   end
 
   def on_readable socket, messages
     @received_count += 1
-    rc = socket.send_message messages.first
+    assert(socket.send_message(messages[-1]))
+    messages.each { |message| message.close }
     @sent_count += 1
   end
+  
+  def on_writable socket
+    puts "#{self.class} deregister writable"
+    @context.deregister_writable socket
+  end
+  
+  def on_readable_error socket, rc
+    puts "ERROR: #{self.class} socket got rc [#{rc}]"
+  end
+end
+
+def assert_not_nil obj
+  puts "Object is nil allocated at #{caller(1)}" unless obj
 end
 
 # Run both handlers within the same reactor context
 ctx1 = ZM::Reactor.new(:test).run do |context|
   @pong_handler = PongHandler.new context
-  context.rep_socket @pong_handler
+  assert_not_nil(context.rep_socket(@pong_handler))
 
   @ping_handler = PingHandler.new context
-  context.req_socket @ping_handler
+  assert_not_nil(context.req_socket(@ping_handler))
 
   start = Time.now
   timer = context.periodical_timer(2000) do

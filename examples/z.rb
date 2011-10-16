@@ -98,21 +98,16 @@ ctx2 = ZM::Reactor.new(:B).run do |context|
 
     @pub2_handler = PublisherHandler.new context, 5555, ['futures.us.nq.m.10', 'futures.us.nq.u.10']
     context.pub_socket @pub2_handler
+  end
+end
+
+ctx3 = ZM::Reactor.new(:B).run do |context|
+  # start the publishers and subscribers after a 1 sec delay; give time
+  # to the forwarder device to start up and get ready
+  context.oneshot_timer(1000) do
 
     @sub1_handler = SubscriberHandler.new context, [5556]
     context.sub_socket @sub1_handler
-
-    @sub2_handler = SubscriberHandler.new context, [5556], 'futures.us.es.m'
-    context.sub_socket @sub2_handler
-
-    @sub3_handler = SubscriberHandler.new context, [5556], 'futures.us.es.u'
-    context.sub_socket @sub3_handler
-
-    @sub4_handler = SubscriberHandler.new context, [5556], 'futures.us.nq.m'
-    context.sub_socket @sub4_handler
-
-    @sub5_handler = SubscriberHandler.new context, [5556], 'futures.us.'
-    context.sub_socket @sub5_handler
   end
 end
 
@@ -125,7 +120,7 @@ puts "done sleeping"
 puts "sent [#{@pub1_handler.sent_count}]"
 puts "sent [#{@pub2_handler.sent_count}]"
 puts "*               [#{@sub1_handler.received_count}]"
-puts "futures.us.ep.m [#{@sub2_handler.received_count}]"
-puts "futures.us.ep.u [#{@sub3_handler.received_count}]"
-puts "futures.us.nq.m [#{@sub4_handler.received_count}]"
-puts "futures.us.nq   [#{@sub5_handler.received_count}]"
+#puts "futures.us.ep.m [#{@sub2_handler.received_count}]"
+#puts "futures.us.ep.u [#{@sub3_handler.received_count}]"
+#puts "futures.us.nq.m [#{@sub4_handler.received_count}]"
+#puts "futures.us.nq   [#{@sub5_handler.received_count}]"
