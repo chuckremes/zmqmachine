@@ -59,7 +59,7 @@ module ZMQMachine
       #FIXME error check!
       rc = socket.connect @transport
 
-      raise "#{self.class}#on_attach, failed to connect to transport endpoint [#{@transport}]" unless rc
+      raise ConnectionError.new("#{self.class}#on_attach, failed to connect to transport endpoint [#{@transport}]") unless ZMQ::Util.resultcode_ok?(rc)
 
       register_for_events socket
     end
@@ -78,7 +78,7 @@ module ZMQMachine
       @message_queue << [ZMQ::Message.new(level.to_s), ZMQ::Message.new(timestamp), ZMQ::Message.new(message.to_s)]
       write_queue_to_socket
     end
-    
+
     def puts string
       write 'untagged', string
     end
@@ -109,26 +109,38 @@ module ZMQMachine
       @reactor.deregister_writable socket
     end
 
-    def set_options socket
-      socket.raw_socket.setsockopt ZMQ::HWM, 0
-      socket.raw_socket.setsockopt ZMQ::LINGER, 0
+    if LibZMQ.version2?
+
+      def set_options socket
+        socket.raw_socket.setsockopt ZMQ::HWM, 0
+        socket.raw_socket.setsockopt ZMQ::LINGER, 0
+      end
+
+    elsif LibZMQ.version3?
+
+      def set_options socket
+        socket.raw_socket.setsockopt ZMQ::SNDHWM, 0
+        socket.raw_socket.setsockopt ZMQ::RCVHWM, 0
+        socket.raw_socket.setsockopt ZMQ::LINGER, 0
+      end
+
     end
 
     def write_queue_to_socket
       until @message_queue.empty?
         rc = @socket.send_messages @message_queue.at(0)
 
-        if rc # succeeded, so remove the message from the queue
+        if ZMQ::Util.resultcode_ok?(rc) # succeeded, so remove the message from the queue
           messages = @message_queue.shift
           messages.each { |message| message.close }
-          
+
           if @timer
             @timer.cancel
             @timer = nil
           end
-          
+
         else
-          
+
           # schedule another write attempt in 10 ms; break out of the loop
           # only set the timer *once*
           @timer = @reactor.oneshot_timer 10, method(:write_queue_to_socket) unless @timer

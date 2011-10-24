@@ -36,6 +36,10 @@
 
 module ZMQMachine
   
+  class ConnectionError < StandardError; end
+
+  class SetsockoptError < StandardError; end
+
   class TimeoutError < StandardError; end
   
   class UnknownAddressError < StandardError; end

@@ -37,7 +37,7 @@
 module ZMQMachine
 
   class Reactor
-    attr_reader :name, :context, :logger
+    attr_reader :name, :context, :logger, :exception_handler
 
     # +name+ provides a name for this reactor instance. It's unused
     # at present but may be used in the future for allowing multiple
@@ -61,6 +61,9 @@ module ZMQMachine
     # to for publishing log messages. when this key is defined, the
     # client is automatically created and connected to the indicated
     # endpoint.
+    #
+    # Lastly, +opts+ may include a +exception_handler+ key. The exception
+    # handler should respond to #call and take a single argument.
     #
     def initialize name, poll_interval = 10, opts = {}
       @name = name
@@ -89,6 +92,10 @@ module ZMQMachine
       if opts[:log_transport]
         @logger = LogClient.new self, opts[:log_transport]
         @logging_enabled = true
+      end
+
+      if opts[:exception_handler]
+        @exception_handler = opts[:exception_handler]
       end
     end
 
@@ -457,9 +464,17 @@ module ZMQMachine
     private
 
     def run_once
-      run_procs
-      run_timers
-      poll
+      begin
+        run_procs
+        run_timers
+        poll
+      rescue => e
+        if @exception_handler
+          @exception_handler.call(e)
+        else
+          raise
+        end
+      end
     end
 
     # Close each open socket and terminate the reactor context; this will
@@ -515,14 +530,14 @@ module ZMQMachine
 
     def create_socket handler_instance, kind
       sock = nil
-      
+
       begin
         sock = kind.new @context, handler_instance
         save_socket sock
       rescue ZMQ::ContextError => e
         sock = nil
       end
-      
+
       sock
     end
 
