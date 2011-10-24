@@ -66,9 +66,13 @@ class SubscriberHandler
     @received_count += 1
     sleep 0.01 if @sleep
   end
+
+  def on_readable_error socket, rc
+    STDERR.puts "got error, rc [#{rc}], errno [#{ZMQ::Util.errno}], descr [#{ZMQ::Util.error_string}]"
+  end
 end
 
-sleep_time = 5
+sleep_time = 10
 
 
 # Run the forwarder device in a separate context. *Could* be run from
