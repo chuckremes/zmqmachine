@@ -29,9 +29,9 @@ descriptors. This isn't on my roadmap but patches are accepted.
 
 * Some classes are just skeletons.
 
-* Recommended for JRuby since it is the only existing runtime that uses
+* Recommended for JRuby or Rubinius since they are the only existing runtimes that use
   native threads without a GIL. MRI 1.9.x is okay but may have
-  threading problems.
+  threading problems. This hasn't been tested with MacRuby.
 
 == SYNOPSIS:
 
@@ -41,12 +41,12 @@ Read and execute the examples in the examples directory.
 
 Requires the 0mq library
 
-* 0mq 2.0.10 or 2.1 and later
+* 0mq 2.1.x, 3.0 and later
 
 Depends on 2 external gems.
 
-* ffi-rzmq (>= 0.7.0)
-* ffi (>= 1.0.0)
+* ffi-rzmq (>= 0.9.0)
+* ffi (>= 1.0.0) [MRI only]
 
 == INSTALL:
 

@@ -1,3 +1,12 @@
+== 0.6.0 / 2011-10-04
+  * Compatibility with ffi-rzmq 0.9.0 and added some conditional
+    logic to support 0mq 2.1.x and 3.x APIs.
+  
+  * Removed all exceptions and replaced them with return codes.
+
+  * Added :exception_handler key to Reactor#new so exceptions can
+    be managed by user code.
+
 == 0.5.2 / 2011-07-21
   * Added PUSH and PULL socket types. Never needed them until now.
   * Added a +context+ reader to the Reactor class.
