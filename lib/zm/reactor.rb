@@ -518,11 +518,11 @@ module ZMQMachine
         sleep(@poll_interval / 1000.0)
       else
         rc = @poller.poll @poll_interval
-      end
 
-      if ZMQ::Util.resultcode_ok?(rc)
-        @poller.readables.each { |sock| @raw_to_socket[sock].resume_read }
-        @poller.writables.each { |sock| @raw_to_socket[sock].resume_write }
+        if ZMQ::Util.resultcode_ok?(rc)
+          @poller.readables.each { |sock| @raw_to_socket[sock].resume_read }
+          @poller.writables.each { |sock| @raw_to_socket[sock].resume_write }
+        end
       end
 
       rc
