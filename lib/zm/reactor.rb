@@ -449,6 +449,14 @@ module ZMQMachine
       end
     end
 
+    # Returns a deferrable connected to this Reactor
+    #
+    def default_deferrable
+      deferrable = ZM::DefaultDeferrable.new
+      deferrable.reactor = self
+      deferrable
+    end
+
     # Publishes log messages to an existing transport passed in to the Reactor
     # constructor using the :log_endpoint key.
     #
