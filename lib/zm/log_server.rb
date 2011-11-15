@@ -2,11 +2,11 @@
 #
 # Author:: Chuck Remes
 # Homepage::  http://github.com/chuckremes/zmqmachine
-# Date:: 20100602
+# Date:: 20111101
 #
 #----------------------------------------------------------------------------
 #
-# Copyright (C) 2010 by Chuck Remes. All Rights Reserved.
+# Copyright (C) 2011 by Chuck Remes. All Rights Reserved.
 # Email: cremes at mac dot com
 #
 # (The MIT License)
@@ -36,51 +36,33 @@
 
 module ZMQMachine
 
-  module Socket
+  class LogServer
+    include Server::SUB
 
-    class Sub
-      include ZMQMachine::Socket::Base
+    def initialize(configuration)
+      configuration.on_read = method(:on_read)
+      super
 
-      def initialize context, handler
-        @poll_options = ZMQ::POLLIN
-        @kind = :sub
+      @file = configuration.extra[:file] || STDOUT
+    end
 
-        super
+    # Writes all messages to the file.
+    #
+    def on_read socket, messages
+      string = ''
+      messages.each_with_index do |message, index|
+        string << '|' if index > 0
+        string << "#{message.copy_out_string}"
       end
 
-      # Attach a handler to the SUB socket.
-      #
-      # A SUB socket may *only*receive messages.
-      #
-      # This socket expects its +handler+ to
-      # implement the #on_readable method.
-      # The #on_readable method will be called whenever a
-      # message may be dequeued without blocking.
-      #
-      # For error handling purposes, the handler must also
-      # implement #on_readable_error.
-      #
-      def on_attach handler
-        raise ArgumentError, "Handler must implement an #on_readable method" unless handler.respond_to? :on_readable
-        raise ArgumentError, "Handler must implement an #on_readable_error method" unless handler.respond_to? :on_readable_error
-        super
-      end
+      @file.print "#{string}\n"
+      @file.flush
+    end
 
-      def subscribe topic
-        @raw_socket.setsockopt(ZMQ::SUBSCRIBE, topic)
-      end
+    def write messages
+      # no op
+    end
 
-      def subscribe_all
-        subscribe ''
-      end
+  end # class LogServer
 
-      private
-
-      def allocate_socket context
-        ZMQ::Socket.new context.pointer, ZMQ::SUB
-      end
-    end # class Sub
-
-  end # module Socket
-
-end # module ZMQMachine
+end

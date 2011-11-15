@@ -64,7 +64,7 @@ module ZMQMachine
     #
     class Queue
 
-      class Handler
+      class XReqHandler
         attr_accessor :socket_out
 
         def initialize reactor, address, dir, opts = {}
@@ -86,24 +86,25 @@ module ZMQMachine
           @reactor.deregister_writable socket
         end
 
-        def on_readable socket, messages
-          messages.each { |msg| @reactor.log(:device, "[Q#{@dir}] [#{msg.copy_out_string}]") } if @verbose
+        def on_readable socket, messages, envelope
+          all = (envelope + messages)
+          all.each { |msg| @reactor.log(:device, "[Q#{@dir}] [#{msg.copy_out_string}]") } if @verbose
 
           if @socket_out
             # FIXME: need to be able to handle EAGAIN/failed send
-            rc = socket_out.send_messages messages
-            messages.each { |message| message.close }
+            rc = socket_out.send_messages all
+            all.each { |message| message.close }
           end
         end
 
-        if LibZMQ.version2?
+        if ZMQ::LibZMQ.version2?
 
           def set_options socket
             error_check(socket.raw_socket.setsockopt(ZMQ::HWM, (@opts[:hwm] || 1)))
             error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
           end
 
-        elsif LibZMQ.version3?
+        elsif ZMQ::LibZMQ.version3?
 
           def set_options socket
             error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, (@opts[:hwm] || 1)))
@@ -123,8 +124,21 @@ module ZMQMachine
           end
         end
 
-      end # class Handler
+      end # class XReqHandler
 
+      class XRepHandler < XReqHandler
+        
+        def on_readable socket, messages, envelope
+          all = envelope + messages
+          all.each { |msg| @reactor.log(:device, "[Q#{@dir}] [#{msg.copy_out_string}]") } if @verbose
+
+          if @socket_out
+            # FIXME: need to be able to handle EAGAIN/failed send
+            rc = socket_out.send_messages all
+            all.each { |message| message.close }
+          end
+        end
+      end
 
       # Takes either a properly formatted string that can be converted into a ZM::Address
       # or takes a ZM::Address directly.

@@ -46,7 +46,6 @@ module ZMQMachine
         @kind = :pub
 
         super
-        @state = :ready
       end
 
       # Attach a handler to the PUB socket.

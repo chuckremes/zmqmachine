@@ -129,7 +129,7 @@ module ZMQMachine
         @raw_socket.sendmsgs messages
       end
 
-      if LibZMQ.version2? || LibZMQ.version3?
+      if ZMQ::LibZMQ.version2? || ZMQ::LibZMQ.version3?
 
         # Retrieve the IDENTITY value assigned to this socket.
         #
@@ -153,13 +153,13 @@ module ZMQMachine
           rc = @raw_socket.recvmsgs parts, ZMQ::Util.nonblocking_flag
 
           if ZMQ::Util.resultcode_ok?(rc)
-            deliver(parts, rc)
+            @handler.on_readable self, parts
           else
             # verify errno corresponds to EAGAIN
             if eagain?
               more = false
             elsif valid_socket_error?
-              deliver([], rc)
+              @handler.on_readable_error self, rc
             end
           end
         end
@@ -177,15 +177,6 @@ module ZMQMachine
 
 
       private
-
-      def deliver parts, rc
-        if ZMQ::Util.resultcode_ok?(rc)
-          @handler.on_readable self, parts
-        else
-          # this branch is never called
-          @handler.on_readable_error self, rc
-        end
-      end
 
       def eagain?
         ZMQ::EAGAIN == ZMQ::Util.errno

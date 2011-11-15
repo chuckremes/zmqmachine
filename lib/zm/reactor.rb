@@ -39,46 +39,50 @@ module ZMQMachine
   class Reactor
     attr_reader :name, :context, :logger, :exception_handler
 
+    # Takes a ZMQ::Configuration instance to initialize itself.
+    #
     # +name+ provides a name for this reactor instance. It's unused
     # at present but may be used in the future for allowing multiple
-    # reactors to communicate amongst each other.
+    # reactors to communicate amongst each other. Defaults to 'unnamed'
+    # if it isn't set.
     #
     # +poll_interval+ is the number of milliseconds to block while
-    # waiting for new 0mq socket events; default is 10
+    # waiting for new 0mq socket events; default is 10 ms.
     #
-    # +opts+ may contain a key +:zeromq_context+. When this
-    # hash is provided, the value for :zeromq_context should be a
+    # +context+ should be a
     # 0mq context as created by ZMQ::Context.new. The purpose of
     # providing a context to the reactor is so that multiple
     # reactors can share a single context. Doing so allows for sockets
     # within each reactor to communicate with each other via an
     # :inproc transport (:inproc is misnamed, it should be :incontext).
     # By not supplying this hash, the reactor will create and use
-    # its own 0mq context.
+    # its own 0mq context. Default is nil.
     #
-    # +opts+ may also include a +:log_transport+ key. This should be
+    # +log_endpoint+ is a
     # a transport string for an endpoint that a logger client may connect
     # to for publishing log messages. when this key is defined, the
     # client is automatically created and connected to the indicated
-    # endpoint.
+    # endpoint. Default is nil.
     #
-    # Lastly, +opts+ may include a +exception_handler+ key. The exception
-    # handler should respond to #call and take a single argument.
+    # +exception_handler+ is called for all exceptions. The
+    # handler should respond to #call and take a single argument. Default
+    # is to just raise the exception and exit.
     #
-    def initialize name, poll_interval = 10, opts = {}
-      @name = name
+    def initialize configuration = nil
+      configuration ||= Configuration.new
+      @name = configuration.name || 'unnamed'
       @running = false
       @thread = nil
-      @poll_interval = determine_interval poll_interval
+      @poll_interval = determine_interval(configuration.poll_interval || 10)
       @timers = ZMQMachine::Timers.new
 
       @proc_queue = []
       @proc_queue_mutex = Mutex.new
 
       # could raise if it fails to allocate a Context
-      @context = if opts[:zeromq_context]
+      @context = if configuration.context
         @shared_context = true
-        opts[:zeromq_context]
+        configuration.context
       else
         @shared_context = false
         ZMQ::Context.new
@@ -89,14 +93,12 @@ module ZMQMachine
       @raw_to_socket = {}
       Thread.abort_on_exception = true
 
-      if opts[:log_transport]
-        @logger = LogClient.new self, opts[:log_transport]
+      if configuration.log_endpoint
+        @logger = LogClient.new self, configuration.log_endpoint
         @logging_enabled = true
       end
 
-      if opts[:exception_handler]
-        @exception_handler = opts[:exception_handler]
-      end
+      @exception_handler = configuration.exception_handler if configuration.exception_handler
     end
 
     def shared_context?
@@ -249,6 +251,7 @@ module ZMQMachine
     def xreq_socket handler_instance
       create_socket handler_instance, ZMQMachine::Socket::XReq
     end
+    alias :dealer_socket :xreq_socket
 
     # Creates a XREP socket and attaches +handler_instance+ to the
     # resulting socket. Should only be paired with one other
@@ -264,6 +267,7 @@ module ZMQMachine
     def xrep_socket handler_instance
       create_socket handler_instance, ZMQMachine::Socket::XRep
     end
+    alias :router_socket :xrep_socket
 
     # Creates a PAIR socket and attaches +handler_instance+ to the
     # resulting socket. Works only with other #pair_socket instances
@@ -437,16 +441,16 @@ module ZMQMachine
     end
 
     # Publishes log messages to an existing transport passed in to the Reactor
-    # constructor using the :log_transport key.
+    # constructor using the :log_endpoint key.
     #
-    #  Reactor.new :log_transport => 'inproc://reactor_log'
+    #  Reactor.new :log_endpoint => 'inproc://reactor_log'
     #
     # +level+ parameter refers to a key to indicate severity level, e.g. :warn,
     # :debug, level0, level9, etc.
     #
     # +message+ is a plain string that will be written out in its entirety.
     #
-    # When no :log_transport was defined when creating the Reactor, all calls
+    # When no :log_endpoint was defined when creating the Reactor, all calls
     # just discard the messages.
     #
     #  reactor.log(:info, "some message")

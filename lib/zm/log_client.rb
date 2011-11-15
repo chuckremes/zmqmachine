@@ -109,14 +109,14 @@ module ZMQMachine
       @reactor.deregister_writable socket
     end
 
-    if LibZMQ.version2?
+    if ZMQ::LibZMQ.version2?
 
       def set_options socket
         socket.raw_socket.setsockopt ZMQ::HWM, 0
         socket.raw_socket.setsockopt ZMQ::LINGER, 0
       end
 
-    elsif LibZMQ.version3?
+    elsif ZMQ::LibZMQ.version3?
 
       def set_options socket
         socket.raw_socket.setsockopt ZMQ::SNDHWM, 0

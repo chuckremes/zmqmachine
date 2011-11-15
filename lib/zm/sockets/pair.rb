@@ -46,7 +46,6 @@ module ZMQMachine
         @kind = :pair
 
         super
-        @state = :ready
       end
 
       # Attach a handler to the PAIR socket.

@@ -100,14 +100,14 @@ module ZMQMachine
           STDERR.puts "#{self.class}#on_readable_error, rc [#{return_code}], errno [#{ZMQ::Util.errno}], descr [#{ZMQ::Util.error_string}]"
         end
 
-        if LibZMQ.version2?
+        if ZMQ::LibZMQ.version2?
 
           def set_options socket
             error_check(socket.raw_socket.setsockopt(ZMQ::HWM, (@opts[:hwm] || 1)))
             error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
           end
 
-        elsif LibZMQ.version3?
+        elsif ZMQ::LibZMQ.version3?
 
           def set_options socket
             error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, (@opts[:hwm] || 1)))

@@ -74,6 +74,51 @@ module ZMQMachine
       end
     end # class Rep
 
+    class XRep
+      include ZMQMachine::Socket::Base
+      include ZMQMachine::Socket::EnvelopeHelp
+
+      def initialize context, handler
+        @poll_options = ZMQ::POLLIN
+        @kind = :xreply
+
+        super
+      end
+
+      # Attach a handler to the XREP socket.
+      #
+      # A XREP socket has no restrictions on the number of sends and
+      # recieves. Each send will silently prepend a message part to
+      # your outgoing data which the REQ/XREQ socket on the other end
+      # will use for matching up the transaction.
+      #
+      # This socket expects its +handler+ to
+      # implement at least the #on_readable method. This method
+      # will be called whenever a reply arrives. The #on_writable method
+      # will be called continually until the socket HWM is breached.
+      #
+      # For error handling purposes, the handler must also
+      # implement #on_readable_error.
+      #
+      def on_attach handler
+        raise ArgumentError, "Handler must implement an #on_readable method" unless handler.respond_to? :on_readable
+        raise ArgumentError, "Handler must implement an #on_readable_error method" unless handler.respond_to? :on_readable_error
+        raise ArgumentError, "Handler must implement an #on_writable method" unless handler.respond_to? :on_writable
+        raise ArgumentError, "Handler must implement an #on_writable_error method" unless handler.respond_to? :on_writable_error
+        super
+      end
+
+
+      private
+
+      def allocate_socket context
+        sock = ZMQ::Socket.new context.pointer, ZMQ::XREP
+        sock
+      end
+    end # class XRep
+    
+    Router = XRep # same thing, different name
+
   end # module Socket
 
 end # module ZMQMachine
