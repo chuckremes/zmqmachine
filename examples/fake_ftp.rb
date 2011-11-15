@@ -93,6 +93,10 @@ class FTPControlClient
 
     @data_client.should_expect reply['total_chunks']
   end
+  
+  def on_readable_error socket, error
+    puts "on_readable_error, error [#{error}], descr [#{ZMQ::Util.error_string}]"
+  end
 
   def get filename, &blk
     sub_address = ZM::Address.new @address.host, 5556, @address.transport
@@ -204,6 +208,10 @@ class FTPControlServer
       @pub_handler = nil
     end
   end
+  
+  def on_readable_error socket, error
+    puts "on_readable_error, error [#{error}], descr [#{ZMQ::Util.error_string}]"
+  end
 
   def on_writable socket
     puts "#{self.class.name}#on_writable ERROR, should never be called"
@@ -223,7 +231,7 @@ end
 
 
 # Run both handlers within the same reactor context
-ctx1 = ZM::Reactor.new(:test).run do |context|
+ctx1 = ZM::Reactor.new.run do |context|
 
   @request_server = FTPControlServer.new context, server_address
   context.rep_socket @request_server

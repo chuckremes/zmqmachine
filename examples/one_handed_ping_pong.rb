@@ -29,6 +29,7 @@ class PingPongHandler
     when :request
       rc = socket.connect address
       @context.register_readable socket
+      @context.register_writable socket
     end
   end
 
@@ -57,7 +58,7 @@ end
 
 handler = nil
 # Run both handlers within the same reactor context
-ctx1 = ZM::Reactor.new(:test).run do |context|
+ctx1 = ZM::Reactor.new.run do |context|
   handler = PingPongHandler.new context
 
   context.rep_socket handler

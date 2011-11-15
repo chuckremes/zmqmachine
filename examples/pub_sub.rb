@@ -79,8 +79,14 @@ end
 # handler is only getting instantiated and run in one reactor at a time. The subscriber
 # handlers can be instantiated multiple times in each reactor if you so choose.
 
+configuration = ZM::Configuration.new do
+  name 'publisher reactor'
+  poll_interval 3
+  exception_handler Proc.new { |exc| raise(exc) }
+end
+
 # Run all handlers within the same reactor context
-ctx1 = ZM::Reactor.new(:A).run do |context|
+ctx1 = ZM::Reactor.new(configuration).run do |context|
   @pub1_handler = PublisherHandler.new context, 5555, ['futures.us.es.m.10', 'futures.us.es.u.10']
   context.pub_socket @pub1_handler
 
@@ -105,7 +111,7 @@ end
 
 # Or, run each handler in separate contexts each with its
 # own thread.
-ctx2 = ZM::Reactor.new(:B).run do |context|
+ctx2 = ZM::Reactor.new.run do |context|
   #  @pub1_handler = PublisherHandler.new context, 5555, ['futures.us.es.m.10', 'futures.us.es.u.10']
   #  context.pub_socket @pub1_handler
 
@@ -128,7 +134,7 @@ ctx2 = ZM::Reactor.new(:B).run do |context|
   #  context.sub_socket @sub5_handler
 end
 
-ctx3 = ZM::Reactor.new(:C).run do |context|
+ctx3 = ZM::Reactor.new.run do |context|
   #  @pub1_handler = PublisherHandler.new context, 5555, ['futures.us.es.m.10', 'futures.us.es.u.10']
   #  context.pub_socket @pub1_handler
   #
@@ -151,7 +157,7 @@ ctx3 = ZM::Reactor.new(:C).run do |context|
   #  context.sub_socket @sub5_handler
 end
 
-ctx4 = ZM::Reactor.new(:D).run do |context|
+ctx4 = ZM::Reactor.new.run do |context|
   #  @pub1_handler = PublisherHandler.new context, 5555, ['futures.us.es.m.10', 'futures.us.es.u.10']
   #  context.pub_socket @pub1_handler
   #

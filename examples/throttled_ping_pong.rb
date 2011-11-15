@@ -75,7 +75,7 @@ end
 
 
 # Run both handlers within the same reactor context
-ctx1 = ZM::Reactor.new(:pong).run do |context|
+ctx1 = ZM::Reactor.new.run do |context|
   @pong_handler = PongHandler.new context
   context.pair_socket @pong_handler
 
@@ -87,7 +87,7 @@ end
 
 # Or, run each handler in separate contexts each with its
 # own thread.
-ctx2 = ZM::Reactor.new(:ping).run do |context|
+ctx2 = ZM::Reactor.new.run do |context|
   @ping_handler = PingHandler.new context
   context.pair_socket @ping_handler
 end

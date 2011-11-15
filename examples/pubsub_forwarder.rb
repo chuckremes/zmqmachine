@@ -78,7 +78,7 @@ sleep_time = 10
 # Run the forwarder device in a separate context. *Could* be run from
 # the same context as the publishers and subscribers too.
 #
-ctx1 = ZM::Reactor.new(:A).run do |context|
+ctx1 = ZM::Reactor.new.run do |context|
   incoming = ZM::Address.new '127.0.0.1', 5555, :tcp
   outgoing = "tcp://127.0.0.1:5556"
 
@@ -88,7 +88,7 @@ end
 
 # Or, run each handler in separate contexts each with its
 # own thread.
-ctx2 = ZM::Reactor.new(:B).run do |context|
+ctx2 = ZM::Reactor.new.run do |context|
   # start the publishers and subscribers after a 1 sec delay; give time
   # to the forwarder device to start up and get ready
   context.oneshot_timer(1000) do
