@@ -1,3 +1,12 @@
+== 0.7.0 / 2011-10-28
+  * Created a class for holding Reactor and Server configurations.
+    This is much nicer than passing in individual args or a hash.
+    
+  * Added the ZM::Servers module to make building servers a little
+    easier. The biggest improvement is for making servers that
+    utilize XREP/ROUTER sockets since the module handles the 
+    splitting of the routing envelope messages from the body.
+
 == 0.6.0 / 2011-10-04
   * Compatibility with ffi-rzmq 0.9.0 and added some conditional
     logic to support 0mq 2.1.x and 3.x APIs.

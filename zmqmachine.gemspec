@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{zmqmachine}
-  s.version = "0.6.0"
+  s.version = "0.7.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Chuck Remes"]
@@ -22,7 +22,7 @@ It is possible to extend the 0mq library to "poll" normal file
 descriptors. This isn't on my roadmap but patches are accepted.}
   s.email = %q{cremes@mac.com}
   s.extra_rdoc_files = ["History.txt", "README.rdoc", "version.txt"]
-  s.files = [".bnsignore", "History.txt", "README.rdoc", "Rakefile", "examples/fake_ftp.rb", "examples/one_handed_ping_pong.rb", "examples/ping_pong.rb", "examples/pub_sub.rb", "examples/pubsub_forwarder.rb", "examples/throttled_ping_pong.rb", "lib/zm/address.rb", "lib/zm/deferrable.rb", "lib/zm/devices.rb", "lib/zm/devices/forwarder.rb", "lib/zm/devices/queue.rb", "lib/zm/exceptions.rb", "lib/zm/log_client.rb", "lib/zm/message.rb", "lib/zm/reactor.rb", "lib/zm/sockets.rb", "lib/zm/sockets/base.rb", "lib/zm/sockets/pair.rb", "lib/zm/sockets/pub.rb", "lib/zm/sockets/rep.rb", "lib/zm/sockets/req.rb", "lib/zm/sockets/sub.rb", "lib/zm/sockets/xrep.rb", "lib/zm/sockets/xreq.rb", "lib/zm/sockets/push.rb", "lib/zm/sockets/pull.rb", "lib/zm/timers.rb", "lib/zmqmachine.rb", "spec/spec_helper.rb", "spec/reactor_spec.rb", "version.txt", "zmqmachine.gemspec"]
+  s.files = [".bnsignore", "AUTHORS.txt", "History.txt", "README.rdoc", "Rakefile", "examples/fake_ftp.rb", "examples/one_handed_ping_pong.rb", "examples/ping_pong.rb", "examples/pub_sub.rb", "examples/pubsub_forwarder.rb", "examples/throttled_ping_pong.rb", "lib/zm/address.rb", "lib/zm/configuration.rb", "lib/zm/deferrable.rb", "lib/zm/devices.rb", "lib/zm/devices/forwarder.rb", "lib/zm/devices/queue.rb", "lib/zm/exceptions.rb", "lib/zm/log_client.rb", "lib/zm/log_server.rb", "lib/zm/message.rb", "lib/zm/reactor.rb", "lib/zm/server.rb", "lib/zm/server/base.rb", "lib/zm/server/configuration.rb", "lib/zm/server/pair.rb", "lib/zm/server/pub.rb", "lib/zm/server/pull.rb", "lib/zm/server/push.rb", "lib/zm/server/rep.rb", "lib/zm/server/req.rb", "lib/zm/server/routing_envelope.rb", "lib/zm/server/sub.rb", "lib/zm/sockets.rb", "lib/zm/sockets/base.rb", "lib/zm/sockets/envelope_help.rb", "lib/zm/sockets/pair.rb", "lib/zm/sockets/pub.rb", "lib/zm/sockets/rep.rb", "lib/zm/sockets/req.rb", "lib/zm/sockets/sub.rb", "lib/zm/sockets/push.rb", "lib/zm/sockets/pull.rb", "lib/zm/timers.rb", "lib/zmqmachine.rb", "spec/spec_helper.rb", "spec/reactor_spec.rb", "version.txt", "zmqmachine.gemspec"]
   s.homepage = %q{http://github.com/chuckremes/zmqmachine}
   s.rdoc_options = ["--main", "README.rdoc"]
   s.require_paths = ["lib"]
@@ -35,14 +35,14 @@ descriptors. This isn't on my roadmap but patches are accepted.}
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      s.add_runtime_dependency(%q<ffi-rzmq>, [">= 0.7.0"])
+      s.add_runtime_dependency(%q<ffi-rzmq>, [">= 0.9.0"])
       s.add_development_dependency(%q<bones>, [">= 3.5.4"])
     else
-      s.add_dependency(%q<ffi-rzmq>, [">= 0.7.0"])
+      s.add_dependency(%q<ffi-rzmq>, [">= 0.9.0"])
       s.add_dependency(%q<bones>, [">= 3.5.4"])
     end
   else
-    s.add_dependency(%q<ffi-rzmq>, [">= 0.7.0"])
+    s.add_dependency(%q<ffi-rzmq>, [">= 0.9.0"])
     s.add_dependency(%q<bones>, [">= 3.5.4"])
   end
 end
