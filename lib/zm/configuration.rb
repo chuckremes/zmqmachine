@@ -8,6 +8,24 @@ module ZMQMachine
       # the value with no arg, or sets the value with an arg. Then we create a second
       # method with the explicit '=' on it to allow directly setting the value.
       #
+      # This let's us do nice things like eval a block and set the instance vars.
+      # e.g.
+      #  SomeClass.new do
+      #    field1 'set to this string'
+      #  end
+      #
+      # or
+      #
+      #  some_class = SomeClass.new
+      #  some_class.field1 = 'set to this string'
+      #  puts some_class.field1 # => set to this string
+      #
+      # or
+      #
+      #  some_class = SomeClass.new
+      #  some_class.field1('set to this string')
+      #  puts some_class.field1 # => set to this string
+      #
       def self.create_accessors(mod, fields)
         fields.each do |field_name|
           code = <<-code
@@ -87,7 +105,7 @@ end
 
 module ZMQMachine
 
-ZMQMachine::ConfigClassMaker.create_class('Configuration', %w( name poll_interval context log_endpoint exception_handler ), Object, ZMQMachine)
+  ZMQMachine::ConfigClassMaker.create_class('Configuration', %w( name poll_interval context log_endpoint exception_handler ), Object, ZMQMachine)
 end # ZMQMachine
 
 
