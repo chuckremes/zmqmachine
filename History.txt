@@ -6,6 +6,18 @@
     easier. The biggest improvement is for making servers that
     utilize XREP/ROUTER sockets since the module handles the 
     splitting of the routing envelope messages from the body.
+    
+  * Fixed a bug where a timer that raises an exception prevented
+    other periodical timers from renewing. Thanks to Tim
+    Carey-Smith for the bug report!
+    The fix is somewhat incomplete. Any timer that raises an
+    exception does ensure that all periodical timers are renewed.
+    However, if there are 5 timers that are renewed but the first
+    one raised an exception, the other timers are not run in this
+    cycle. If the same timer continues to raise an exception, the
+    other timers (that come after it in sequence) will never get
+    a chance to run. Suggestions on how to resolve that without
+    killing performance are welcome.
 
 == 0.6.0 / 2011-10-04
   * Compatibility with ffi-rzmq 0.9.0 and added some conditional

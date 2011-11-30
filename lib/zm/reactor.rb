@@ -68,13 +68,21 @@ module ZMQMachine
     # handler should respond to #call and take a single argument. Default
     # is to just raise the exception and exit.
     #
+    #  config = ZM::Configuration.new
+    #  config.context = master_context
+    #  config.log_endpoint = endpoint
+    #  config.name = :test_rig
+    #  config.poll_interval = 100 # defaults to 10 if unset
+    #  Reactor.new(config).run do |reactor|
+    #    reactor.oneshot_timer(50) { print("At least 50ms have elapsed\n")}
+    #  end
+    #
     def initialize configuration = nil
       configuration ||= Configuration.new
       @name = configuration.name || 'unnamed'
       @running = false
       @thread = nil
       @poll_interval = determine_interval(configuration.poll_interval || 10)
-      @timers = ZMQMachine::Timers.new
 
       @proc_queue = []
       @proc_queue_mutex = Mutex.new
@@ -99,6 +107,7 @@ module ZMQMachine
       end
 
       @exception_handler = configuration.exception_handler if configuration.exception_handler
+      @timers = ZMQMachine::Timers.new(@exception_handler)
     end
 
     def shared_context?

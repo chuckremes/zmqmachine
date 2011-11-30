@@ -2,7 +2,7 @@
 module ZMQMachine
   module Server
     ZMQMachine::ConfigClassMaker.create_class('Configuration', 
-    %w( on_read bind connect endpoint topic hwm linger extra reactor name context log_endpoint exception_handler ), 
+    %w( on_read bind connect endpoint topic hwm linger extra reactor ), 
     ZMQMachine::Configuration, 
     ZMQMachine::Server)
   end

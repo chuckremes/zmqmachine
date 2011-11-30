@@ -47,7 +47,8 @@ module ZMQMachine
   # new timers are installed in the correct #Reactor.
   #
   class Timers
-    def initialize
+    def initialize(exception_handler)
+      @exception_handler = exception_handler
       @timers = []
     end
 
@@ -70,14 +71,14 @@ module ZMQMachine
       add timer
       timer
     end
-    
+
     # Adds a non-periodical, one-shot timer to be fired at
     # the specified time.
     #
     def add_oneshot_at exact_time, timer_proc = nil, &blk
       blk ||= timer_proc
       return nil unless blk
-      
+
       timer = Timer.new :timers => self, :exact_time => exact_time, :periodical => false, :timer_proc => blk
       add timer
       timer
@@ -113,7 +114,7 @@ module ZMQMachine
       if i < @timers.size && timer == @timers.at(i)
         @timers.delete_at(i) ? true : false
       else
-        # slow branch; necessary since the #index operation works 
+        # slow branch; necessary since the #index operation works
         # solely from the timer.fire_time attribute. There
         # could be multiple timers scheduled to fire at the
         # same time so the equivalence test above could fail
@@ -121,7 +122,7 @@ module ZMQMachine
         # slower method
         size = @timers.size
         @timers.delete_if { |t| t == timer }
-        
+
         # true when the array has shrunk, false otherwise
         @timers.size != size
       end
@@ -163,7 +164,20 @@ module ZMQMachine
       end
 
       remove expired_count
-      runnables.each { |timer| timer.fire }
+
+      while timer = runnables.shift
+        begin
+          timer.fire
+        rescue => e
+          if @exception_handler
+            @exception_handler.call(e)
+          else
+            renew(periodicals)
+            raise
+          end
+        end
+      end
+
       renew periodicals
     end
 
@@ -202,7 +216,7 @@ module ZMQMachine
 
     private
 
-    # inserts in order using a binary search (O(nlog n)) to find the 
+    # inserts in order using a binary search (O(nlog n)) to find the
     # index to insert; this scales nicely for situations where there
     # are many thousands thousands of timers
     def add timer
@@ -277,9 +291,8 @@ module ZMQMachine
     # itself.
     #
     def fire
-      @timer_proc.call
-
       schedule_firing_time if @periodical
+      @timer_proc.call
     end
 
     # Cancels this timer from firing.
@@ -291,7 +304,7 @@ module ZMQMachine
     def <=>(other)
       @fire_time <=> other.fire_time
     end
-    
+
     def ==(other)
       # need a more specific equivalence test since multiple timers could be
       # scheduled to go off at exactly the same time
@@ -316,15 +329,15 @@ module ZMQMachine
     def reschedule
       schedule_firing_time
     end
-    
+
     def to_s
       ftime = Time.at(@fire_time / 1000)
       fdelay = @fire_time - Timers.now
       name = @timer_proc.respond_to?(:name) ? @timer_proc.name : @timer_proc.to_s
-      
+
       "[delay [#{@delay}], periodical? [#{@periodical}], fire_time [#{ftime}] fire_delay_ms [#{fdelay}]] proc [#{name}]"
     end
-    
+
     def inspect; to_s; end
 
 
