@@ -37,18 +37,21 @@
 module ZMQMachine
   module Device
 
-    # Used in conjunction with PUB/SUB sockets to allow multiple publishers to
-    # all publish to the same "bus."
+
+    # Used in conjunction with REQ/REP sockets to load balance the requests and
+    # replies over (potentially) multiple backends.
     #
-    # The basic mechanics are that the program contains 1 (or more) publishers that
-    # broadcast to the same bus. Connecting to
-    # an intermediate queue device allows for the publishers to have all of their
-    # traffic aggregated to a single port.
+    # The basic mechanics are that the program contains 1 (or more) clients that
+    # talk to 1 (or more) backends that all perform the same work. Connecting to
+    # an intermediate queue device allows for the client requests to be fair-balanced
+    # among the available backend servers. The hidden identities passed along by
+    # REQ/REP sockets are used by the queue device's internal XREQ/XREP sockets to
+    # route the messages back to the appropriate client.
     #
     # Example:
     #
     #  # the queue creates sockets and binds to both given addresses; all messages get
-    #  # republished from +incoming+ to +outgoing+
+    #  # routed between the two
     #  config = ZM::Devices::Configuration.new
     #  config.reactor = reactor
     #  config.incoming_endpoint = "tcp://192.168.0.100:5050"
@@ -56,54 +59,47 @@ module ZMQMachine
     #  config.verbose = false
     #  config.linger = 10 # ms
     #  config.hwm = 0
-    #  config.topic = '' # get everything
-    #  forwarder = ZM::Device::Forwarder.new(config)
+    #  queue = ZM::Device::Queue.new(config)
     #
-    #  # the +pub_handler+ internally calls "connect" to the incoming address given above
-    #  pub1 = reactor.pub_socket(pub_handler)
-    #  pub2 = reactor.pub_socket(pub_handler)
+    #  # the +client_handler+ internally calls "connect" to the incoming address given above
+    #  client = reactor.req_socket(client_handler)
+    #  client2 = reactor.req_socket(client_handler)
     #
-    #  # the +sub_handler+ internally calls "connect" to the outgoing address given above
-    #  subscriber = reactor.sub_socket(sub_handler)
+    #  # the +server_handler+ internally calls "connect" to the outgoing address given above
+    #  server = reactor.rep_socket(server_handler)
     #
-    class Forwarder
+    class Queue
 
-      class Handler
+      class XReqHandler
         attr_accessor :socket_out
 
-        def initialize(config, address)
+        def initialize(config, address, direction)
           @reactor = config.reactor
           @address = address
           @verbose = config.verbose
           @config = config
-
-          @messages = []
+          @direction = direction
         end
 
         def on_attach(socket)
           set_options(socket)
           rc = socket.bind(@address)
           error_check(rc)
-
-          error_check(socket.subscribe_all) if :sub == socket.kind
         end
 
         def on_writable(socket)
           @reactor.deregister_writable(socket)
         end
 
-        def on_readable(socket, messages)
-          messages.each { |msg| @reactor.log(:device, "[fwd] [#{msg.copy_out_string}]") } if @verbose
+        def on_readable(socket, messages, envelope)
+          all = (envelope + messages)
+          all.each { |msg| @reactor.log(:device, "[Q#{@direction}] [#{msg.copy_out_string}]") } if @verbose
 
           if @socket_out
-            rc = socket_out.send_messages(messages)
-            error_check(rc)
-            messages.each { |message| message.close }
+            # FIXME: need to be able to handle EAGAIN/failed send
+            rc = socket_out.send_messages(all)
+            all.each { |message| message.close }
           end
-        end
-
-        def on_readable_error(socket, return_code)
-          @reactor.log(:error, "#{self.class}#on_readable_error, rc [#{return_code}], errno [#{ZMQ::Util.errno}], descr [#{ZMQ::Util.error_string}]")
         end
 
         if ZMQ::LibZMQ.version2?
@@ -132,10 +128,27 @@ module ZMQMachine
             true
           end
         end
-      end # class Handler
 
+      end # class XReqHandler
 
-      # Forwards all messages received by the +incoming+ address to the +outgoing+ address.
+      class XRepHandler < XReqHandler
+        
+        def on_readable(socket, messages, envelope)
+          all = envelope + messages
+          all.each { |msg| @reactor.log(:device, "[Q#{@direction}] [#{msg.copy_out_string}]") } if @verbose
+
+          if @socket_out
+            # FIXME: need to be able to handle EAGAIN/failed send
+            rc = socket_out.send_messages(all)
+            all.each { |message| message.close }
+          end
+        end
+      end
+
+      # Takes either a properly formatted string that can be converted into a ZM::Address
+      # or takes a ZM::Address directly.
+      #
+      # Routes all messages received by either address to the other address.
       #
       def initialize(config)
         @reactor = config.reactor
@@ -143,19 +156,18 @@ module ZMQMachine
         outgoing = Address.from_string(config.outgoing_endpoint.to_s)
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new(config, incoming)
-        @handler_out = Handler.new(config, outgoing)
+        @handler_in = Handler.new(config, incoming, :in)
+        @handler_out = Handler.new(config, outgoing, :out)
 
         # create each socket and pass in the appropriate handler
-        @incoming_sock = @reactor.sub_socket(@handler_in)
-        @outgoing_sock = @reactor.pub_socket(@handler_out)
+        @incoming_sock = @reactor.xrep_socket(@handler_in)
+        @outgoing_sock = @reactor.xreq_socket(@handler_out)
 
         # set each handler's outgoing socket
         @handler_in.socket_out = @outgoing_sock
         @handler_out.socket_out = @incoming_sock
       end
-    end # class Forwarder
+    end # class Queue
 
   end # module Device
-
 end # module ZMQMachine

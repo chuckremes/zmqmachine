@@ -65,7 +65,7 @@ require 'singleton'
 require 'ffi-rzmq'
 
 # the order of files is important
-%w(address exceptions timers deferrable configuration server log_client log_server reactor message sockets devices).each do |file|
+%w(address exceptions timers deferrable configuration server log_client log_server reactor message sockets device).each do |file|
   require ZMQMachine.libpath(['zm', file])
 end
 

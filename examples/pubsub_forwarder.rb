@@ -82,7 +82,7 @@ ctx1 = ZM::Reactor.new.run do |context|
   incoming = ZM::Address.new '127.0.0.1', 5555, :tcp
   outgoing = "tcp://127.0.0.1:5556"
   
-  config = ZM::Devices::Configuration.new
+  config = ZM::Device::Configuration.new
   config.reactor = context
   config.incoming_endpoint = incoming
   config.outgoing_endpoint = outgoing

@@ -1,10 +1,10 @@
 
 module ZMQMachine
-  module Devices
+  module Device
     ZMQMachine::ConfigClassMaker.create_class('Configuration', 
     %w( reactor incoming_endpoint outgoing_endpoint topic hwm linger verbose ), 
     ZMQMachine::Configuration, 
-    ZMQMachine::Devices)
+    ZMQMachine::Device)
     
     class Configuration
       
