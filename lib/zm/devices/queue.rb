@@ -53,73 +53,79 @@ module ZMQMachine
     #
     #  # the queue creates sockets and binds to both given addresses; all messages get
     #  # routed between the two
-    #  queue = ZM::Device::Queue.new reactor, "tcp://192.168.0.100:5050", "tcp://192.168.0.100:5051"
+    #  config = ZM::Devices::Configuration.new
+    #  config.reactor = reactor
+    #  config.incoming_endpoint = "tcp://192.168.0.100:5050"
+    #  config.outgoing_endpoint = "tcp://192.168.0.100:5051"
+    #  config.verbose = false
+    #  config.linger = 10 # ms
+    #  config.hwm = 0
+    #  queue = ZM::Device::Queue.new(config)
     #
     #  # the +client_handler+ internally calls "connect" to the incoming address given above
-    #  client = reactor.req_socket client_handler
-    #  client2 = reactor.req_socket client_handler
+    #  client = reactor.req_socket(client_handler)
+    #  client2 = reactor.req_socket(client_handler)
     #
     #  # the +server_handler+ internally calls "connect" to the outgoing address given above
-    #  server = reactor.rep_socket server_handler
+    #  server = reactor.rep_socket(server_handler)
     #
     class Queue
 
       class XReqHandler
         attr_accessor :socket_out
 
-        def initialize reactor, address, dir, opts = {}
-          @reactor = reactor
+        def initialize(config, address, direction)
+          @reactor = config.reactor
           @address = address
-          @verbose = opts[:verbose] || false
-          @opts = opts
-          @dir = dir
+          @verbose = config.verbose
+          @config = config
+          @direction = direction
         end
 
-        def on_attach socket
-          set_options socket
-          rc = socket.bind @address
+        def on_attach(socket)
+          set_options(socket)
+          rc = socket.bind(@address)
           error_check(rc)
-          #FIXME: error handling!
         end
 
-        def on_writable socket
-          @reactor.deregister_writable socket
+        def on_writable(socket)
+          @reactor.deregister_writable(socket)
         end
 
-        def on_readable socket, messages, envelope
+        def on_readable(socket, messages, envelope)
           all = (envelope + messages)
-          all.each { |msg| @reactor.log(:device, "[Q#{@dir}] [#{msg.copy_out_string}]") } if @verbose
+          all.each { |msg| @reactor.log(:device, "[Q#{@direction}] [#{msg.copy_out_string}]") } if @verbose
 
           if @socket_out
             # FIXME: need to be able to handle EAGAIN/failed send
-            rc = socket_out.send_messages all
+            rc = socket_out.send_messages(all)
             all.each { |message| message.close }
           end
         end
 
         if ZMQ::LibZMQ.version2?
 
-          def set_options socket
-            error_check(socket.raw_socket.setsockopt(ZMQ::HWM, (@opts[:hwm] || 1)))
-            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          def set_options(socket)
+            error_check(socket.raw_socket.setsockopt(ZMQ::HWM, @config.hwm))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, @config.linger))
           end
 
         elsif ZMQ::LibZMQ.version3?
 
-          def set_options socket
-            error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, (@opts[:hwm] || 1)))
-            error_check(socket.raw_socket.setsockopt(ZMQ::RCVHWM, (@opts[:hwm] || 1)))
-            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          def set_options(socket)
+            error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, @config.hwm))
+            error_check(socket.raw_socket.setsockopt(ZMQ::RCVHWM, @config.hwm))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, @config.linger))
           end
 
         end
 
-        def error_check rc
+        def error_check(rc)
           if ZMQ::Util.resultcode_ok?(rc)
             false
           else
-            STDERR.puts "Operation failed, errno [#{ZMQ::Util.errno}] description [#{ZMQ::Util.error_string}]"
-            caller(1).each { |callstack| STDERR.puts(callstack) }
+            @reactor.log(:error, "Operation failed, errno [#{ZMQ::Util.errno}] description [#{ZMQ::Util.error_string}]")
+            caller(1).each { |callstack| @reactor.log(:callstack, callstack) }
             true
           end
         end
@@ -128,13 +134,13 @@ module ZMQMachine
 
       class XRepHandler < XReqHandler
         
-        def on_readable socket, messages, envelope
+        def on_readable(socket, messages, envelope)
           all = envelope + messages
-          all.each { |msg| @reactor.log(:device, "[Q#{@dir}] [#{msg.copy_out_string}]") } if @verbose
+          all.each { |msg| @reactor.log(:device, "[Q#{@direction}] [#{msg.copy_out_string}]") } if @verbose
 
           if @socket_out
             # FIXME: need to be able to handle EAGAIN/failed send
-            rc = socket_out.send_messages all
+            rc = socket_out.send_messages(all)
             all.each { |message| message.close }
           end
         end
@@ -145,21 +151,22 @@ module ZMQMachine
       #
       # Routes all messages received by either address to the other address.
       #
-      def initialize reactor, incoming, outgoing, opts = {}
-        incoming = Address.from_string incoming if incoming.kind_of? String
-        outgoing = Address.from_string outgoing if outgoing.kind_of? String
+      def initialize(config)
+        @reactor = config.reactor
+        incoming = Address.from_string(config.incoming_endpoint.to_s)
+        outgoing = Address.from_string(config.outgoing_endpoint.to_s)
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new reactor, incoming, :in, opts
-        @handler_out = Handler.new reactor, outgoing, :out, opts
+        @handler_in = Handler.new(config, incoming, :in)
+        @handler_out = Handler.new(config, outgoing, :out)
 
         # create each socket and pass in the appropriate handler
-        @incoming = reactor.xrep_socket @handler_in
-        @outgoing = reactor.xreq_socket @handler_out
+        @incoming_sock = @reactor.xrep_socket(@handler_in)
+        @outgoing_sock = @reactor.xreq_socket(@handler_out)
 
         # set each handler's outgoing socket
-        @handler_in.socket_out = @outgoing
-        @handler_out.socket_out = @incoming
+        @handler_in.socket_out = @outgoing_sock
+        @handler_out.socket_out = @incoming_sock
       end
     end # class Queue
 

@@ -35,9 +35,7 @@
 #
 
 module ZMQMachine
-
   module Device
-
 
     # Used in conjunction with PUB/SUB sockets to allow multiple publishers to
     # all publish to the same "bus."
@@ -51,105 +49,110 @@ module ZMQMachine
     #
     #  # the queue creates sockets and binds to both given addresses; all messages get
     #  # republished from +incoming+ to +outgoing+
-    #  forwarder = ZM::Device::Forwarder.new reactor, "tcp://192.168.0.100:5050", "tcp://192.168.0.100:5051"
+    #  config = ZM::Devices::Configuration.new
+    #  config.reactor = reactor
+    #  config.incoming_endpoint = "tcp://192.168.0.100:5050"
+    #  config.outgoing_endpoint = "tcp://192.168.0.100:5051"
+    #  config.verbose = false
+    #  config.linger = 10 # ms
+    #  config.hwm = 0
+    #  config.topic = '' # get everything
+    #  forwarder = ZM::Device::Forwarder.new(config)
     #
     #  # the +pub_handler+ internally calls "connect" to the incoming address given above
-    #  pub1 = reactor.pub_socket pub_handler
-    #  pub2 = reactor.pub_socket pub_handler
+    #  pub1 = reactor.pub_socket(pub_handler)
+    #  pub2 = reactor.pub_socket(pub_handler)
     #
     #  # the +sub_handler+ internally calls "connect" to the outgoing address given above
-    #  subscriber = reactor.sub_socket sub_handler
+    #  subscriber = reactor.sub_socket(sub_handler)
     #
     class Forwarder
 
       class Handler
         attr_accessor :socket_out
 
-        def initialize reactor, address, opts = {}
-          @reactor = reactor
+        def initialize(config, address)
+          @reactor = config.reactor
           @address = address
-          @verbose = opts[:verbose] || false
-          @opts = opts
+          @verbose = config.verbose
+          @config = config
 
           @messages = []
         end
 
-        def on_attach socket
-          set_options socket
-          rc = socket.bind @address
+        def on_attach(socket)
+          set_options(socket)
+          rc = socket.bind(@address)
           error_check(rc)
-          #FIXME: error handling!
+
           error_check(socket.subscribe_all) if :sub == socket.kind
         end
 
-        def on_writable socket
-          @reactor.deregister_writable socket
+        def on_writable(socket)
+          @reactor.deregister_writable(socket)
         end
 
-        def on_readable socket, messages
+        def on_readable(socket, messages)
           messages.each { |msg| @reactor.log(:device, "[fwd] [#{msg.copy_out_string}]") } if @verbose
 
           if @socket_out
-            rc = socket_out.send_messages messages
+            rc = socket_out.send_messages(messages)
             error_check(rc)
             messages.each { |message| message.close }
           end
         end
 
-        def on_readable_error socket, return_code
-          STDERR.puts "#{self.class}#on_readable_error, rc [#{return_code}], errno [#{ZMQ::Util.errno}], descr [#{ZMQ::Util.error_string}]"
+        def on_readable_error(socket, return_code)
+          @reactor.log(:error, "#{self.class}#on_readable_error, rc [#{return_code}], errno [#{ZMQ::Util.errno}], descr [#{ZMQ::Util.error_string}]")
         end
 
         if ZMQ::LibZMQ.version2?
 
-          def set_options socket
-            error_check(socket.raw_socket.setsockopt(ZMQ::HWM, (@opts[:hwm] || 1)))
-            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          def set_options(socket)
+            error_check(socket.raw_socket.setsockopt(ZMQ::HWM, @config.hwm))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, @config.linger))
           end
 
         elsif ZMQ::LibZMQ.version3?
 
-          def set_options socket
-            error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, (@opts[:hwm] || 1)))
-            error_check(socket.raw_socket.setsockopt(ZMQ::RCVHWM, (@opts[:hwm] || 1)))
-            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, (@opts[:linger] || 0)))
+          def set_options(socket)
+            error_check(socket.raw_socket.setsockopt(ZMQ::SNDHWM, @config.hwm))
+            error_check(socket.raw_socket.setsockopt(ZMQ::RCVHWM, @config.hwm))
+            error_check(socket.raw_socket.setsockopt(ZMQ::LINGER, @config.linger))
           end
 
         end
 
-        def error_check rc
+        def error_check(rc)
           if ZMQ::Util.resultcode_ok?(rc)
             false
           else
-            STDERR.puts "Operation failed, errno [#{ZMQ::Util.errno}] description [#{ZMQ::Util.error_string}]"
-            caller(1).each { |callstack| STDERR.puts(callstack) }
+            @reactor.log(:error, "Operation failed, errno [#{ZMQ::Util.errno}] description [#{ZMQ::Util.error_string}]")
+            caller(1).each { |callstack| @reactor.log(:callstack, callstack) }
             true
           end
         end
-
       end # class Handler
 
 
-      # Takes either a properly formatted string that can be converted into a ZM::Address
-      # or takes a ZM::Address directly.
-      #
       # Forwards all messages received by the +incoming+ address to the +outgoing+ address.
       #
-      def initialize reactor, incoming, outgoing, opts = {:verbose => false}
-        incoming = Address.from_string incoming if incoming.kind_of? String
-        outgoing = Address.from_string outgoing if outgoing.kind_of? String
+      def initialize(config)
+        @reactor = config.reactor
+        incoming = Address.from_string(config.incoming_endpoint.to_s)
+        outgoing = Address.from_string(config.outgoing_endpoint.to_s)
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new reactor, incoming, opts
-        @handler_out = Handler.new reactor, outgoing, opts
+        @handler_in = Handler.new(config, incoming)
+        @handler_out = Handler.new(config, outgoing)
 
         # create each socket and pass in the appropriate handler
-        @incoming = reactor.sub_socket @handler_in
-        @outgoing = reactor.pub_socket @handler_out
+        @incoming_sock = @reactor.sub_socket(@handler_in)
+        @outgoing_sock = @reactor.pub_socket(@handler_out)
 
         # set each handler's outgoing socket
-        @handler_in.socket_out = @outgoing
-        @handler_out.socket_out = @incoming
+        @handler_in.socket_out = @outgoing_sock
+        @handler_out.socket_out = @incoming_sock
       end
     end # class Forwarder
 

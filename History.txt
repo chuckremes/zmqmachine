@@ -1,3 +1,9 @@
+== 0.7.1 / 2011-11-30
+  * Updated the Devices to use a Device::Configuration instance
+    for configuration rather than that long method signature.
+    Makes all components conform to this new configuration
+    mechanism consistently.
+
 == 0.7.0 / 2011-10-28
   * Created a class for holding Reactor and Server configurations.
     This is much nicer than passing in individual args or a hash.
