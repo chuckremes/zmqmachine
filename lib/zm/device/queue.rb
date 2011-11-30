@@ -52,7 +52,7 @@ module ZMQMachine
     #
     #  # the queue creates sockets and binds to both given addresses; all messages get
     #  # routed between the two
-    #  config = ZM::Devices::Configuration.new
+    #  config = ZM::Device::Configuration.new
     #  config.reactor = reactor
     #  config.incoming_endpoint = "tcp://192.168.0.100:5050"
     #  config.outgoing_endpoint = "tcp://192.168.0.100:5051"
