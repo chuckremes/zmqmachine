@@ -156,8 +156,8 @@ module ZMQMachine
         outgoing = Address.from_string(config.outgoing_endpoint.to_s)
 
         # setup the handlers for processing messages
-        @handler_in = Handler.new(config, incoming, :in)
-        @handler_out = Handler.new(config, outgoing, :out)
+        @handler_in = XRepHandler.new(config, incoming, :in)
+        @handler_out = XReqHandler.new(config, outgoing, :out)
 
         # create each socket and pass in the appropriate handler
         @incoming_sock = @reactor.xrep_socket(@handler_in)
