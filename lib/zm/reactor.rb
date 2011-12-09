@@ -533,8 +533,15 @@ module ZMQMachine
         rc = @poller.poll @poll_interval
 
         if ZMQ::Util.resultcode_ok?(rc)
-          @poller.readables.each { |sock| @raw_to_socket[sock].resume_read }
-          @poller.writables.each { |sock| @raw_to_socket[sock].resume_write }
+          @poller.readables.each do |sock|
+            reactor_socket = @raw_to_socket[sock]
+            reactor_socket.resume_read if reactor_socket
+          end
+
+          @poller.writables.each do |sock|
+            reactor_socket = @raw_to_socket[sock]
+            reactor_socket.resume_write if reactor_socket
+          end
         end
       end
 
