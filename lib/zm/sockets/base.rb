@@ -125,6 +125,8 @@ module ZMQMachine
       # Convenience method for sending a multi-part message. The
       # +messages+ argument must implement Enumerable.
       #
+      # Caller is responsible for closing the +messages+ upon return.
+      #
       def send_messages messages
         @raw_socket.sendmsgs messages
       end
