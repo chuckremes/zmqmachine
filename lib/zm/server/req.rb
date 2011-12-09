@@ -16,11 +16,8 @@ module ZMQMachine
 
     module XREQ
       include Base
-      include RoutingEnvelope
 
       def on_readable socket, messages, envelope
-        @routing = save_routing envelope
-
         @on_read.call socket, messages, envelope
         close_messages(envelope + messages)
       end
