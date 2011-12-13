@@ -82,16 +82,31 @@ module ZMQMachine
       # Creates a Configuration object from another object that conforms
       # to the Configuration protocol.
       #
-      def self.create_from(other_config)
+      def self.create_from(other_config, debug = false)
         config = new
-        Fields.each do |name|
+        
+        # only iterate over fields that +other_config+ has defined
+        other_config.class.fields.each do |name|
+          puts "config.send(" + name + ")" if debug
           config.send(name, other_config.send(name.to_sym)) if config.respond_to?(name.to_sym)
         end
-        config
+        config        
+      end
+      
+      def self.fields
+        if defined?(super)
+          super + Fields
+        else
+          Fields
+        end
       end
 
       def initialize(&blk)
         instance_eval(&blk) if block_given?
+      end
+      
+      def inspect
+        self.class.fields.map { |field| [field, send(field)] }.join(', ')
       end
 
       ZMQMachine::ConfigClassMaker::MethodMaker.create_accessors(self, Fields)
@@ -99,6 +114,19 @@ module ZMQMachine
     KLASS
 
     mod.module_eval(klass)
+
+    # Error out if there are any duplicate field names defined
+    new_klass = mod.const_get(klass_name.to_sym)
+    dupes = new_klass.fields.size - new_klass.fields.uniq.size
+    
+    unless dupes.zero?
+      error_message = "Found [#{dupes}] duplicate configuration fields defined for class [#{new_klass}] with parent class [#{parent}]\n"
+      error_message += "#{new_klass}.fields :\n"
+      error_message += new_klass.fields.inspect
+      error_message += "#{parent}.fields :\n"
+      error_message += parent.fields.inspect
+      raise(error_message)
+    end
   end
 end
 end

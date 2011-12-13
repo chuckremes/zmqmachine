@@ -1,8 +1,24 @@
-== 0.7.1 / 2011-11-30
+== 0.7.1 / 2011-12-9
   * Updated the Devices to use a Device::Configuration instance
     for configuration rather than that long method signature.
     Makes all components conform to this new configuration
     mechanism consistently.
+    
+  * Removed responsibility for saving XREQ/XREP/DEALER/ROUTER
+    routing information from the Server modules. The envelope
+    is passed to the callback, so it's the receiver's 
+    responsibility to save that routing information if they need
+    it.
+    
+  * Fixed a potential bug where we could call #resume_read or
+    #resume_write on a nil socket. A little extra sanity checking
+    never hurt anyone.
+
+  * Fixed ZM::Configuration so that subclasses can still see
+    and set the parent class' variables when iterating over the
+    accessor fields. Took a while to figure out the correct
+    metaprogramming techniques, but I learned quite a bit about
+    Ruby inheritance, inheritance visibility, etc.
 
 == 0.7.0 / 2011-10-28
   * Created a class for holding Reactor and Server configurations.
