@@ -231,12 +231,16 @@ module ZMQMachine
     def index value
       l, r = 0, @timers.size - 1
 
-      while l <= r
-        m = (r + l) / 2
-        if value < @timers.at(m)
-          r = m - 1
-        else
-          l = m + 1
+      # if r is 0, then the @timers array is empty; don't iterate otherwise
+      # the @timer.at(0) will return nil and fail
+      if r > 0
+        while l <= r
+          m = (r + l) / 2
+          if value < @timers.at(m)
+            r = m - 1
+          else
+            l = m + 1
+          end
         end
       end
       l
