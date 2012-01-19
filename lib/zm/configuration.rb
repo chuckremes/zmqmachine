@@ -134,6 +134,20 @@ end
 module ZMQMachine
 
   ZMQMachine::ConfigClassMaker.create_class('Configuration', %w( name poll_interval context log_endpoint exception_handler ), Object, ZMQMachine)
+  
+  
+  class Configuration
+    def initialize(&blk)
+      self.name = 'please-set-me-for-thread-debugging'
+      self.poll_interval = 10
+      self.context = nil
+      self.log_endpoint = nil
+      self.exception_handler = nil
+
+      instance_eval(&blk) if block_given?
+    end
+  end
+
 end # ZMQMachine
 
 

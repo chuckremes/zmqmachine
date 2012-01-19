@@ -5,6 +5,24 @@ module ZMQMachine
     %w( on_read bind connect endpoint topic hwm linger extra reactor ), 
     ZMQMachine::Configuration, 
     ZMQMachine::Server)
+    
+    
+    class Configuration
+      def initialize(&blk)
+        self.on_read = nil
+        self.bind = false
+        self.connect = false
+        self.endpoint = nil
+        self.topic = ''
+        self.hwm = 0
+        self.linger = 0
+        self.extra = nil
+        self.reactor = nil
+
+        instance_eval(&blk) if block_given?
+      end
+    end
+
   end
 end
 

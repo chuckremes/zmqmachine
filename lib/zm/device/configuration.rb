@@ -7,15 +7,17 @@ module ZMQMachine
     ZMQMachine::Device)
     
     class Configuration
-      
       def initialize(&blk)
-        instance_eval(&blk) if block_given?
-
         # set defaults
-        self.verbose ||= false
-        self.hwm ||= 1
-        self.linger ||= 0
-        self.topic ||= ''
+        self.reactor = nil
+        self.incoming_endpoint = nil
+        self.outgoing_endpoint = nil
+        self.topic = ''
+        self.hwm = 1
+        self.linger = 0
+        self.verbose = false
+
+        instance_eval(&blk) if block_given?
       end
 
     end
