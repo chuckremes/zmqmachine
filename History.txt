@@ -1,3 +1,33 @@
+== 0.8.0 / 2012-01-19
+  * Fixed some issues so this gem is compatible with ffi-rzmq 
+    version 0.9.5 at a minimum.
+    
+  * Enforce some common-sense defaults in the Configuration
+    objects.
+    
+  * Modify how Queue and Forwarder print their verbose output.
+    Uses STDERR.print now so it is 1) thread-safe, and 2) all
+    output is printed as a single unit. Prior to this, printing
+    data out could get confused because #puts is not thread-safe.
+    
+  * Saves the reactor name in the thread. This is used for enforcing
+    that operations *all* happen on the reactor-thread. Attempts
+    to modify the reactor from non-reactor threads will fail
+    and print a warning.
+    
+  * Makes sure to start the logging client from the reactor thread
+    to avoid race conditions at startup.
+    
+  * The exception handler is now passed to Timer objects. If code
+    running during a timer execution throws an exception, it is
+    caught right away.
+    
+  * Rescues *all* Exceptions now rather than just StandardError.
+  
+  * Timer comparison is done via #object_id now rather than its
+    former methodology.    
+  
+
 == 0.7.1 / 2011-12-9
   * Updated the Devices to use a Device::Configuration instance
     for configuration rather than that long method signature.
