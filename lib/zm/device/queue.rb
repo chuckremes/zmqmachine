@@ -70,7 +70,7 @@ module ZMQMachine
     #
     class Queue
 
-      class XReqHandler
+      class Handler
         attr_accessor :socket_out
 
         def initialize(config, address, direction)
@@ -92,12 +92,24 @@ module ZMQMachine
         end
 
         def on_readable(socket, messages, envelope)
-          all = (envelope + messages)
-          all.each { |msg| @reactor.log(:device, "[Q#{@direction}] [#{msg.copy_out_string}]") } if @verbose
+          all = envelope + messages
+
+          if @verbose
+            str = envelope.map { |msg| strhex(msg.copy_out_string) } + messages.map { |msg| msg.copy_out_string }
+            str.unshift("[Q#{@direction}]")
+            @reactor.log(:device, str.join("\n"))
+          end
 
           if @socket_out
             # FIXME: need to be able to handle EAGAIN/failed send
             rc = socket_out.send_messages(all)
+            
+            if !ZMQ::Util.resultcode_ok?(rc)
+              STDERR.print("error, #{self.class} failed to forward a message!\n")
+              STDERR.print("error, #{self.class} errno [#{ZMQ::Util.errno}] [#{ZMQ::Util.error_string}]\n")
+              STDERR.print(str.join("\n"))
+            end
+            
             all.each { |message| message.close }
           end
         end
@@ -129,21 +141,22 @@ module ZMQMachine
           end
         end
 
-      end # class XReqHandler
+        # Helper method to create a hex string of a byte sequence.
+        #
+        def strhex(str)
+          hex_chars = "0123456789ABCDEF"
+          msg_size = str.size
 
-      class XRepHandler < XReqHandler
-        
-        def on_readable(socket, messages, envelope)
-          all = envelope + messages
-          all.each { |msg| @reactor.log(:device, "[Q#{@direction}] [#{msg.copy_out_string}]") } if @verbose
-
-          if @socket_out
-            # FIXME: need to be able to handle EAGAIN/failed send
-            rc = socket_out.send_messages(all)
-            all.each { |message| message.close }
+          result = ""
+          str.each_byte do |num|
+            i1 = num >> 4
+            i2 = num & 15
+            result << hex_chars[i1]
+            result << hex_chars[i2]
           end
+          result
         end
-      end
+      end # class Handler
 
       # Takes either a properly formatted string that can be converted into a ZM::Address
       # or takes a ZM::Address directly.
@@ -156,8 +169,8 @@ module ZMQMachine
         outgoing = Address.from_string(config.outgoing_endpoint.to_s)
 
         # setup the handlers for processing messages
-        @handler_in = XRepHandler.new(config, incoming, :in)
-        @handler_out = XReqHandler.new(config, outgoing, :out)
+        @handler_in = Handler.new(config, incoming, :in)
+        @handler_out = Handler.new(config, outgoing, :out)
 
         # create each socket and pass in the appropriate handler
         @incoming_sock = @reactor.xrep_socket(@handler_in)

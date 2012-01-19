@@ -93,7 +93,11 @@ module ZMQMachine
         end
 
         def on_readable(socket, messages)
-          messages.each { |msg| @reactor.log(:device, "[fwd] [#{msg.copy_out_string}]") } if @verbose
+          if @verbose
+            str = messages.map { |msg| msg.copy_out_string }
+            str.unshift("[fwd]")
+            @reactor.log(:device, str.join("\n"))
+          end
 
           if @socket_out
             rc = socket_out.send_messages(messages)
