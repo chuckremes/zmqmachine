@@ -108,8 +108,8 @@ module ZMQMachine
       # ZMQ::Util.errno to check for errors.
       #
       def send_message message, multipart = false
-        flag = multipart ? (ZMQ::SNDMORE | ZMQ::Util.nonblocking_flag) : ZMQ::Util.nonblocking_flag
-        @raw_socket.send(message, flag)
+        flag = multipart ? (ZMQ::SNDMORE | ZMQ::NonBlocking) : ZMQ::NonBlocking
+        @raw_socket.sendmsg(message, flag)
       end
 
       # Convenience method to send a string on the socket. It handles
@@ -119,7 +119,7 @@ module ZMQMachine
       # details on the error.
       #
       def send_message_string message, multipart = false
-        @raw_socket.send_string message, ZMQ::Util.nonblocking_flag | (multipart ? ZMQ::SNDMORE : 0)
+        @raw_socket.send_string message, ZMQ::NonBlocking | (multipart ? ZMQ::SNDMORE : 0)
       end
 
       # Convenience method for sending a multi-part message. The
@@ -152,7 +152,7 @@ module ZMQMachine
 
         while ZMQ::Util.resultcode_ok?(rc) && more
           parts = []
-          rc = @raw_socket.recvmsgs parts, ZMQ::Util.nonblocking_flag
+          rc = @raw_socket.recvmsgs parts, ZMQ::NonBlocking
 
           if ZMQ::Util.resultcode_ok?(rc)
             @handler.on_readable self, parts
@@ -161,7 +161,10 @@ module ZMQMachine
             if eagain?
               more = false
             elsif valid_socket_error?
+              STDERR.print("#{self.class} Received a valid socket error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
               @handler.on_readable_error self, rc
+            else
+              STDERR.print("#{self.class} Unhandled read error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
             end
           end
         end

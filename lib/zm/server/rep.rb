@@ -18,7 +18,11 @@ module ZMQMachine
       include Base
 
       def on_readable socket, messages, envelope
-        @on_read.call socket, messages, envelope
+        if @reactor.reactor_thread?
+          @on_read.call socket, messages, envelope
+        else
+          STDERR.print("error, #{self.class} Thread violation! Expected [#{Reactor.current_thread_name}] but got [#{Thread.current['reactor-name']}]\n")
+        end
         close_messages(envelope + messages)
       end
 

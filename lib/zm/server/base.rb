@@ -17,7 +17,7 @@ module ZMQMachine
       def shutdown
         @reactor.log :debug, "#{self.class}#shutdown_socket, closing reactor socket"
         @on_read = nil
-        @reactor.close_socket @socket
+        @reactor.close_socket(@socket)
       end
 
       def on_attach socket
@@ -47,9 +47,11 @@ module ZMQMachine
       # received*.
       #
       def write messages, verbose = false
-        @verbose = verbose
-        @message_queue << messages
-        write_queue_to_socket
+        if @reactor.reactor_thread?
+          @verbose = verbose
+          @message_queue << messages
+          write_queue_to_socket
+        end
       end
 
       # Prints each message when global debugging is enabled.
@@ -57,7 +59,11 @@ module ZMQMachine
       # Forwards +messages+ on to the :on_read callback given in the constructor.
       #
       def on_readable socket, messages
-        @on_read.call socket, messages
+        if @reactor.reactor_thread?
+          @on_read.call socket, messages
+        else
+          STDERR.print("error, #{self.class} Thread violation! Expected [#{Reactor.current_thread_name}] but got [#{Thread.current['reactor-name']}]\n")
+        end
         close_messages messages
       end
 
@@ -114,6 +120,7 @@ module ZMQMachine
           elsif ZMQ::Util.errno == ZMQ::EAGAIN
             # schedule another write attempt in 10 ms; break out of the loop
             @reactor.log :debug, "#{self.class}#write_queue_to_socket, failed to write messages; scheduling next attempt"
+            STDERR.print("debug, #{self.class}#write_queue_to_socket, failed to write messages; scheduling next attempt\n")
             @reactor.oneshot_timer 10, method(:write_queue_to_socket)
             break
           end

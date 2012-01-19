@@ -28,7 +28,7 @@ module ZMQMachine
 
         while ZMQ::Util.resultcode_ok?(rc) && more
           parts, envelope = [], []
-          rc = @raw_socket.recv_multipart parts, envelope, ZMQ::Util.nonblocking_flag
+          rc = @raw_socket.recv_multipart parts, envelope, ZMQ::NonBlocking
 
           if ZMQ::Util.resultcode_ok?(rc)
             @handler.on_readable self, parts, envelope
@@ -37,7 +37,10 @@ module ZMQMachine
             if eagain?
               more = false
             elsif valid_socket_error?
+              STDERR.print("#{self.class} Received a valid socket error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
               @handler.on_readable_error self, rc
+            else
+              STDERR.print("#{self.class} Unhandled read error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
             end
           end
         end

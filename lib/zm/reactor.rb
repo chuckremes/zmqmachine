@@ -79,10 +79,10 @@ module ZMQMachine
     #
     def initialize configuration = nil
       configuration ||= Configuration.new
-      @name = configuration.name || 'unnamed'
+      @name = configuration.name.to_s
       @running = false
       @thread = nil
-      @poll_interval = determine_interval(configuration.poll_interval || 10)
+      @poll_interval = determine_interval(configuration.poll_interval)
 
       @proc_queue = []
       @proc_queue_mutex = Mutex.new
@@ -101,13 +101,11 @@ module ZMQMachine
       @raw_to_socket = {}
       Thread.abort_on_exception = true
 
-      if configuration.log_endpoint
-        @logger = LogClient.new self, configuration.log_endpoint
-        @logging_enabled = true
-      end
+      @log_endpoint = configuration.log_endpoint
+      @logging_enabled = @log_endpoint ? true : false
 
-      @exception_handler = configuration.exception_handler if configuration.exception_handler
-      @timers = ZMQMachine::Timers.new(@exception_handler)
+      @exception_handler = configuration.exception_handler
+      @timers = ZMQMachine::Timers.new(self, @exception_handler)
     end
 
     def shared_context?
@@ -132,6 +130,10 @@ module ZMQMachine
       @running, @stopping = true, false
 
       @thread = Thread.new do
+        Thread.current["reactor-name"] = @name
+
+        start_log_client
+
         blk.call self if blk
 
         while !@stopping && running? do
@@ -210,12 +212,16 @@ module ZMQMachine
     # Returns +true+ for a succesful close, +false+ otherwise.
     #
     def close_socket sock
-      return false unless sock
+      if reactor_thread?
+        return false unless sock
 
-      removed = delete_socket sock
-      sock.raw_socket.close
+        removed = delete_socket sock
+        sock.raw_socket.close
 
-      removed
+        removed
+      else
+        false
+      end
     end
 
     # Creates a REQ socket and attaches +handler_instance+ to the
@@ -358,28 +364,36 @@ module ZMQMachine
     # reactor to call the handler's on_writable method.
     #
     def register_writable sock
-      @poller.register_writable sock.raw_socket
+      if reactor_thread?
+        @poller.register_writable sock.raw_socket
+      end
     end
 
     # Deregisters the +sock+ for POLLOUT. The handler will no longer
     # receive calls to on_writable.
     #
     def deregister_writable sock
-      @poller.deregister_writable sock.raw_socket
+      if reactor_thread?
+        @poller.deregister_writable sock.raw_socket
+      end
     end
 
     # Registers the +sock+ for POLLIN events that will cause the
     # reactor to call the handler's on_readable method.
     #
     def register_readable sock
-      @poller.register_readable sock.raw_socket
+      if reactor_thread?
+        @poller.register_readable sock.raw_socket
+      end
     end
 
     # Deregisters the +sock+ for POLLIN events. The handler will no longer
     # receive calls to on_readable.
     #
     def deregister_readable sock
-      @poller.deregister_readable sock.raw_socket
+      if reactor_thread?
+        @poller.deregister_readable sock.raw_socket
+      end
     end
 
     # Creates a timer that will fire a single time. Expects either a
@@ -390,7 +404,7 @@ module ZMQMachine
     #
     def oneshot_timer delay, timer_proc = nil, &blk
       blk ||= timer_proc
-      @timers.add_oneshot delay, blk
+      timer = @timers.add_oneshot delay, blk
     end
 
     # Creates a timer that will fire once at a specific
@@ -399,8 +413,10 @@ module ZMQMachine
     # +exact_time+ may be either a Time object or a Numeric.
     #
     def oneshot_timer_at exact_time, timer_proc = nil, &blk
-      blk ||= timer_proc
-      @timers.add_oneshot_at exact_time, blk
+      if reactor_thread?
+        blk ||= timer_proc
+        timer = @timers.add_oneshot_at exact_time, blk
+      end
     end
 
     # Creates a timer that will fire every +delay+ milliseconds until
@@ -411,8 +427,10 @@ module ZMQMachine
     # milliseconds)
     #
     def periodical_timer delay, timer_proc = nil, &blk
-      blk ||= timer_proc
-      @timers.add_periodical delay, blk
+      if reactor_thread?
+        blk ||= timer_proc
+        timer = @timers.add_periodical delay, blk
+      end
     end
 
     # Cancels an existing timer if it hasn't already fired.
@@ -420,7 +438,9 @@ module ZMQMachine
     # Returns true if cancelled, false if otherwise.
     #
     def cancel_timer timer
-      @timers.cancel timer
+      if reactor_thread?
+        @timers.cancel timer
+      end
     end
 
     # Asks all timers to reschedule themselves starting from Timers.now.
@@ -433,10 +453,11 @@ module ZMQMachine
     end
 
     def list_timers
-      @timers.list.each do |timer|
-        name = timer.respond_to?(:name) ? timer.timer_proc.name : timer.timer_proc.to_s
-        puts "fire time [#{Time.at(timer.fire_time / 1000)}], method [#{name}]"
+      list = @timers.list
+      list.each do |timer|
+        log :timer, timer.to_s
       end
+      log(:timer, "No timers for reactor [#{@name}]") if list.empty?
     end
 
     def open_socket_count kind = :all
@@ -469,8 +490,32 @@ module ZMQMachine
     #
     def log level, message
       if @logging_enabled
-        @logger.write level, message
+        if reactor_thread?
+          @logger.write level, message
+        end
       end
+    end
+
+    def reactor_thread?
+      unless thread_match?
+        str = "Reactor violation! Accessing reactor from a non-reactor thread!\n"
+        str << "Expected reactor thread [#{@name}] but got [#{self.class.current_thread_name}]\n"
+        str << "Begin backtrace:\n"
+        str << caller.join("\n")
+        str << "\nEnd backtrace.\n"
+        STDERR.print(str)
+        false
+      else
+        true
+      end
+    end
+
+    def thread_match?
+      @name == Reactor.current_thread_name
+    end
+
+    def self.current_thread_name
+      Thread.current['reactor-name']
     end
 
 
@@ -481,7 +526,7 @@ module ZMQMachine
         run_procs
         run_timers
         poll
-      rescue => e
+      rescue Exception => e
         if @exception_handler
           @exception_handler.call(e)
         else
@@ -493,6 +538,7 @@ module ZMQMachine
     # Close each open socket and terminate the reactor context; this will
     # release the native memory backing each of these objects
     def cleanup
+      log(:info, "#{self.class}, Cleanup called, exiting reactor loop.")
       @proc_queue_mutex.synchronize { @proc_queue.clear }
 
       # work on a dup since #close_socket deletes from @sockets
@@ -542,6 +588,9 @@ module ZMQMachine
             reactor_socket = @raw_to_socket[sock]
             reactor_socket.resume_write if reactor_socket
           end
+          
+        else
+          STDERR.print("#{self.class}, Poll returned an error, errno [#{ZMQ::Util.errno}] desc [#{ZMQ::Util.error_string}]\n")
         end
       end
 
@@ -549,16 +598,18 @@ module ZMQMachine
     end
 
     def create_socket handler_instance, kind
-      sock = nil
-
-      begin
-        sock = kind.new @context, handler_instance
-        save_socket sock
-      rescue ZMQ::ContextError => e
+      if reactor_thread?
         sock = nil
-      end
 
-      sock
+        begin
+          sock = kind.new @context, handler_instance
+          save_socket sock
+        rescue ZMQ::ContextError => e
+          sock = nil
+        end
+
+        sock
+      end
     end
 
     def save_socket sock
@@ -570,13 +621,12 @@ module ZMQMachine
     # Returns true when all steps succeed, false otherwise
     #
     def delete_socket sock
-      poll_deleted = @poller.delete(sock.raw_socket)
-      sockets_deleted = @sockets.delete(sock)
-      ffi_deleted = @raw_to_socket.delete(sock.raw_socket)
+      poll_deleted = @poller.delete(sock.raw_socket) ? true : false
+      sockets_deleted = @sockets.delete(sock) ? true : false
+      ffi_deleted = @raw_to_socket.delete(sock.raw_socket) ? true : false
 
       poll_deleted && sockets_deleted && ffi_deleted
     end
-
 
     # Unnecessary to convert the number to microseconds; the ffi-rzmq
     # library does this for us.
@@ -586,6 +636,11 @@ module ZMQMachine
       interval <= 0 ? 1.0 : interval.to_i
     end
 
+    def start_log_client
+      if @logging_enabled
+        @logger = LogClient.new self, @log_endpoint
+      end
+    end
   end # class Reactor
 
 

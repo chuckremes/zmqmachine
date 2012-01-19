@@ -50,7 +50,7 @@ module ZMQMachine
 
       # Attach a handler to the REP socket.
       #
-      # A REP socket must alternate between recv.send (i.e.
+      # A REP socket must alternate between recv.sendmsg (i.e.
       # it cannot receive twice in a row without an intervening
       # send). This socket expects its +handler+ to
       # implement at least the #on_readable method. This method
