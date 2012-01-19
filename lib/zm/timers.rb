@@ -47,9 +47,12 @@ module ZMQMachine
   # new timers are installed in the correct #Reactor.
   #
   class Timers
-    def initialize(exception_handler)
+    def initialize(reactor, exception_handler)
+      @reactor = reactor
       @exception_handler = exception_handler
       @timers = []
+
+      @last_fired = Timers.now
     end
 
     def list
@@ -59,15 +62,14 @@ module ZMQMachine
     # Adds a non-periodical, one-shot timer in order of
     # first-to-fire to last-to-fire.
     #
-    # Returns nil unless a +timer_proc+ or +blk+ are
+    # Returns nil unless a +timer_proc+ is
     # provided. There is no point to an empty timer that
     # does nothing when fired.
     #
-    def add_oneshot delay, timer_proc = nil, &blk
-      blk ||= timer_proc
-      return nil unless blk
+    def add_oneshot delay, timer_proc
+      return nil unless timer_proc
 
-      timer = Timer.new :timers => self, :delay => delay, :periodical => false, :timer_proc => blk
+      timer = Timer.new :timers => self, :delay => delay, :periodical => false, :timer_proc => timer_proc
       add timer
       timer
     end
@@ -75,11 +77,10 @@ module ZMQMachine
     # Adds a non-periodical, one-shot timer to be fired at
     # the specified time.
     #
-    def add_oneshot_at exact_time, timer_proc = nil, &blk
-      blk ||= timer_proc
-      return nil unless blk
+    def add_oneshot_at exact_time, timer_proc
+      return nil unless timer_proc
 
-      timer = Timer.new :timers => self, :exact_time => exact_time, :periodical => false, :timer_proc => blk
+      timer = Timer.new :timers => self, :exact_time => exact_time, :periodical => false, :timer_proc => timer_proc
       add timer
       timer
     end
@@ -87,15 +88,15 @@ module ZMQMachine
     # Adds a periodical timer in order of
     # first-to-fire to last-to-fire.
     #
-    # Returns nil unless a +timer_proc+ or +blk+ are
+    # Returns nil unless a +timer_proc+ is
     # provided. There is no point to an empty timer that
     # does nothing when fired.
     #
-    def add_periodical delay, timer_proc = nil, &blk
-      blk ||= timer_proc
-      return nil unless blk
+    def add_periodical delay, timer_proc
 
-      timer = Timer.new :timers => self, :delay => delay, :periodical => true, :timer_proc => blk
+      return nil unless timer_proc
+
+      timer = Timer.new :timers => self, :delay => delay, :periodical => true, :timer_proc => timer_proc
       add timer
       timer
     end
@@ -107,11 +108,13 @@ module ZMQMachine
     # given +timer+.
     #
     def cancel timer
+      result = false
+
       i = index timer
 
       # when #index doesn't find a match, it returns an index 1 past
       # the end, so check for that
-      if i < @timers.size && timer == @timers.at(i)
+      result = if i < @timers.size && timer == @timers.at(i)
         @timers.delete_at(i) ? true : false
       else
         # slow branch; necessary since the #index operation works
@@ -126,6 +129,8 @@ module ZMQMachine
         # true when the array has shrunk, false otherwise
         @timers.size != size
       end
+
+      result
     end
 
     # A convenience method that loops through all known timers
@@ -153,6 +158,10 @@ module ZMQMachine
     def fire_expired
       # all time is expected as milliseconds
       now = Timers.now
+
+      # detect when the clock has reversed
+      reschedule if now < @last_fired
+      @last_fired = now
       runnables, periodicals, expired_count = [], [], 0
 
       # defer firing the timer until after this loop so we can clean it up first
@@ -185,6 +194,8 @@ module ZMQMachine
     # from Timers.now + whatever delay was originally recorded.
     #
     def reschedule
+      timers = nil
+
       timers = @timers.dup
       @timers.clear
 
@@ -222,6 +233,12 @@ module ZMQMachine
     def add timer
       i = index timer
       @timers.insert(i, timer)
+
+      unless @reactor.name == Thread.current['reactor-name']
+        @reactor.log(:fatal, "Added #{timer.inspect} to wrong reactor! Expected on thread [#{@reactor.name}] but got thread [#{Thread.current['reactor-name']}]")
+        STDERR.print(caller.join("\n"))
+        exit!
+      end
     end
 
     # Original Ruby source Posted by Sergey Chernov (sergeych) on 2010-05-13 20:23
@@ -231,18 +248,15 @@ module ZMQMachine
     def index value
       l, r = 0, @timers.size - 1
 
-      # if r is 0, then the @timers array is empty; don't iterate otherwise
-      # the @timer.at(0) will return nil and fail
-      if r > 0
-        while l <= r
-          m = (r + l) / 2
-          if value < @timers.at(m)
-            r = m - 1
-          else
-            l = m + 1
-          end
+      while l <= r
+        m = (r + l) / 2
+        if value < @timers.at(m)
+          r = m - 1
+        else
+          l = m + 1
         end
       end
+
       l
     end
 
@@ -312,9 +326,10 @@ module ZMQMachine
     def ==(other)
       # need a more specific equivalence test since multiple timers could be
       # scheduled to go off at exactly the same time
-      @fire_time == other.fire_time &&
-      @timer_proc == other.timer_proc &&
-      periodical? == other.periodical?
+      #      @fire_time == other.fire_time &&
+      #      @timer_proc == other.timer_proc &&
+      #      @periodical == other.periodical?
+      object_id == other.object_id
     end
 
     # True when the timer should be fired; false otherwise.
