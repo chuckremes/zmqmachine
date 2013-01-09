@@ -73,6 +73,10 @@ module ZMQMachine
       def subscribe_all
         subscribe ''
       end
+      
+      def unsubscribe topic
+        @raw_socket.setsockopt(ZMQ::UNSUBSCRIBE, topic)
+      end
 
       private
 

@@ -23,24 +23,26 @@ module ZMQMachine
       # Used by the reactor. Never called by user code.
       #
       def resume_read
-        rc = 0
-        more = true
+        if @raw_socket
+          rc = 0
+          more = true
 
-        while ZMQ::Util.resultcode_ok?(rc) && more
-          parts, envelope = [], []
-          rc = @raw_socket.recv_multipart parts, envelope, ZMQ::NonBlocking
+          while ZMQ::Util.resultcode_ok?(rc) && more
+            parts, envelope = [], []
+            rc = @raw_socket.recv_multipart parts, envelope, ZMQ::NonBlocking
 
-          if ZMQ::Util.resultcode_ok?(rc)
-            @handler.on_readable self, parts, envelope
-          else
-            # verify errno corresponds to EAGAIN
-            if eagain?
-              more = false
-            elsif valid_socket_error?
-              STDERR.print("#{self.class} Received a valid socket error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
-              @handler.on_readable_error self, rc
+            if ZMQ::Util.resultcode_ok?(rc)
+              @handler.on_readable self, parts, envelope
             else
-              STDERR.print("#{self.class} Unhandled read error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
+              # verify errno corresponds to EAGAIN
+              if eagain?
+                more = false
+              elsif valid_socket_error?
+                STDERR.print("#{self.class} Received a valid socket error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
+                @handler.on_readable_error self, rc
+              else
+                STDERR.print("#{self.class} Unhandled read error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
+              end
             end
           end
         end

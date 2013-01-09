@@ -81,6 +81,11 @@ module ZMQMachine
         handler.on_attach self
       end
 
+      def close
+        @raw_socket.close
+        @raw_socket = nil
+      end
+
       # Creates a 0mq socket endpoint for the transport given in the
       # +address+. Other 0mq sockets may then #connect to this bound
       # endpoint.
@@ -147,24 +152,26 @@ module ZMQMachine
       # Used by the reactor. Never called by user code.
       #
       def resume_read
-        rc = 0
-        more = true
+        if @raw_socket
+          rc = 0
+          more = true
 
-        while ZMQ::Util.resultcode_ok?(rc) && more
-          parts = []
-          rc = @raw_socket.recvmsgs parts, ZMQ::NonBlocking
+          while ZMQ::Util.resultcode_ok?(rc) && more
+            parts = []
+            rc = @raw_socket.recvmsgs parts, ZMQ::NonBlocking
 
-          if ZMQ::Util.resultcode_ok?(rc)
-            @handler.on_readable self, parts
-          else
-            # verify errno corresponds to EAGAIN
-            if eagain?
-              more = false
-            elsif valid_socket_error?
-              STDERR.print("#{self.class} Received a valid socket error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
-              @handler.on_readable_error self, rc
+            if ZMQ::Util.resultcode_ok?(rc)
+              @handler.on_readable self, parts
             else
-              STDERR.print("#{self.class} Unhandled read error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
+              # verify errno corresponds to EAGAIN
+              if eagain?
+                more = false
+              elsif valid_socket_error?
+                STDERR.print("#{self.class} Received a valid socket error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
+                @handler.on_readable_error self, rc
+              else
+                STDERR.print("#{self.class} Unhandled read error [#{ZMQ::Util.errno}], [#{ZMQ::Util.error_string}]\n")
+              end
             end
           end
         end
@@ -173,7 +180,9 @@ module ZMQMachine
       # Used by the reactor. Never called by user code.
       #
       def resume_write
-        @handler.on_writable self
+        if @raw_socket
+          @handler.on_writable self
+        end
       end
 
       def inspect

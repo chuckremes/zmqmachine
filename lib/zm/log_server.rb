@@ -62,7 +62,6 @@ module ZMQMachine
     def write messages
       # no op
     end
-
   end # class LogServer
 
 end

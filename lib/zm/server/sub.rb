@@ -7,13 +7,21 @@ module ZMQMachine
       include Base
       
       def initialize configuration
-        @topic = configuration.topic || ''
+        @topic = configuration.topic
         super
       end
 
       def write messages
         # no op
         close messages
+      end
+      
+      def add_subscription_filter(string)
+        subscribe(@socket, string)
+      end
+      
+      def remove_subscription_filter(string)
+        unsubscribe(@socket, string)
       end
 
 
@@ -24,13 +32,17 @@ module ZMQMachine
       end
 
       def register_for_events socket
-        subscribe socket, @topic
+        subscribe socket, @topic if @topic
 
         super
       end
 
       def subscribe socket, topic
-        rc = socket.subscribe topic
+        rc = socket.subscribe topic.to_s
+      end
+      
+      def unsubscribe socket, topic
+        rc = socket.unsubscribe topic.to_s
       end
 
 

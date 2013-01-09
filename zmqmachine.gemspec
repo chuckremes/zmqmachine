@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{zmqmachine}
-  s.version = "0.8.0"
+  s.version = "0.8.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Chuck Remes"]
@@ -20,7 +20,7 @@ and asynchronous.
 
 It is possible to extend the 0mq library to "poll" normal file
 descriptors. This isn't on my roadmap but patches are accepted.}
-  s.email = %q{cremes@mac.com}
+  s.email = %q{git@chuckremes.com}
   s.extra_rdoc_files = ["History.txt", "README.rdoc", "version.txt"]
   s.files = `git ls-files`.split("\n")
   s.homepage = %q{http://github.com/chuckremes/zmqmachine}

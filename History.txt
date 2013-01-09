@@ -1,3 +1,22 @@
+== 2013-01-09
+  * Project has been abandoned by author. Use celluloid, dcell
+    or celluloid-io instead.
+
+== 0.8.1 / 2012-02-03
+  * Move socket close functionality into Socket::Base module.
+    No longer exposes internal socket structure to outside
+    objects. Also, sets internal raw socket to nil after closing.
+    This can be checked by #resume_read & #resume_write so that
+    we don't try to read/write to a socket that has been closed.
+    This can happen if we close a socket during another socket's
+    callback; the closed socket may have data on it that we
+    haven't yet processed in Reactor#poll, but by closing it we
+    have already determined we don't want the data.
+    
+  * Add some sugar to the Socket::Sub class for adding and 
+    removing subscription filters. We no longer default to
+    subscribing to *all* data when creating one of these sockets.
+
 == 0.8.0 / 2012-01-19
   * Fixed some issues so this gem is compatible with ffi-rzmq 
     version 0.9.5 at a minimum.

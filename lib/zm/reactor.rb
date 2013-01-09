@@ -216,7 +216,7 @@ module ZMQMachine
         return false unless sock
 
         removed = delete_socket sock
-        sock.raw_socket.close
+        sock.close
 
         removed
       else
@@ -633,6 +633,7 @@ module ZMQMachine
     #
     def determine_interval interval
       # set a lower bound of 1 millisec so we don't burn up the CPU
+      interval ||= 10
       interval <= 0 ? 1.0 : interval.to_i
     end
 
