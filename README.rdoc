@@ -2,6 +2,18 @@ zmqmachine
     by Chuck Remes
     http://github.com/chuckremes/zmqmachine
 
+== NOTE NOTE NOTE
+
+You should not use this code. Use celluloid, dcell or celluloid-io
+directly. This project is dead. I'm leaving it here as a historical
+curiosity.
+
+
+== YOU HAVE BEEN WARNED! DON'T USE THIS CODE
+
+
+Original Readme text follow...
+
 == DESCRIPTION:
 
 ZMQMachine is another Ruby implementation of the reactor pattern but this
