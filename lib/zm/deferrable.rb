@@ -169,7 +169,9 @@ module ZMQMachine
       
       # we use milliseconds, not seconds, so adjust the passed in time
       seconds *= 1000
-      @deferred_timeout = ZMQMachine::Timers.add_oneshot seconds {me.fail(*args)}
+      @deferred_timeout = reactor.oneshot_timer seconds do
+        me.fail(*args)
+      end
     end
 
     # Cancels an outstanding timeout if any. Undoes the action of #timeout.
@@ -204,6 +206,7 @@ module ZMQMachine
   # as a way of communicating deferred status to some other part of a program.
   class DefaultDeferrable
     include Deferrable
+    attr_accessor :reactor
   end
 
 end # module ZMQMachine
